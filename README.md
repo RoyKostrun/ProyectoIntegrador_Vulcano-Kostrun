@@ -1,1 +1,4 @@
-# ProyectoIntegrador_Vulcano-Kostrun-Romagnoli
+# Proyecto Integrador
+Vulcano, Rocio
+Kostrun, Roy Bruno
+Diaz Romagnoli, Pedro

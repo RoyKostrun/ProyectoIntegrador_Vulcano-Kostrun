@@ -1,11 +1,20 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+import 'services/supabase_client.dart';
 import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
 import 'screens/account_type_selection_screen.dart';
 import 'screens/register_personal_screen.dart';
 import 'screens/register_empresarial_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar Supabase con la clase que definiste
+  await SupabaseConfig.initialize();
+
   runApp(const MyApp());
 }
 
@@ -16,20 +25,31 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'ChangApp',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        fontFamily: 'Inter', // Puedes cambiar la fuente si quieres
+        fontFamily: 'Inter',
       ),
-      // Pantalla inicial: Login
-      home: const LoginScreen(),
-      debugShowCheckedModeBanner: false,
-      
-      // Rutas de navegación
+
+      // Delegates de localización para Material, Widgets y Cupertino
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', ''), // Español
+        Locale('en', ''), // Inglés
+      ],
+
+      // Rutas
+      initialRoute: '/login',
       routes: {
-        '/login': (context) => const LoginScreen(),
-        '/account-type-selection': (context) => const AccountTypeSelectionScreen(),
-        '/register-personal': (context) => const RegisterPersonalScreen(),
-        '/register-empresarial': (context) => const RegisterEmpresarialScreen(),
+        '/login':                    (context) => const LoginScreen(),
+        '/home':                     (context) => const HomeScreen(),
+        '/account-type-selection':   (context) => const AccountTypeSelectionScreen(),
+        '/register-personal':        (context) => const RegisterPersonalScreen(),
+        '/register-empresarial':     (context) => const RegisterEmpresarialScreen(),
       },
     );
   }

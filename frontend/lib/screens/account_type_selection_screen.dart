@@ -1,18 +1,15 @@
 // lib/screens/account_type_selection_screen.dart
 import 'package:flutter/material.dart';
-import '../components/app_logo.dart';
 
 class AccountTypeSelectionScreen extends StatelessWidget {
   const AccountTypeSelectionScreen({Key? key}) : super(key: key);
 
   void _selectPersonal(BuildContext context) {
-    // Navegar a la pantalla de registro personal
     Navigator.pushNamed(context, '/register-personal');
     print('Seleccionó: Personal');
   }
 
   void _selectEmpresarial(BuildContext context) {
-    // Navegar a la pantalla de registro empresarial
     Navigator.pushNamed(context, '/register-empresarial');
     print('Seleccionó: Empresarial');
   }
@@ -20,34 +17,48 @@ class AccountTypeSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFFC5414B)),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      backgroundColor: const Color(0xFFC5414B), // Fondo bordó completo
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 32.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 40),
-              
-              // Logo de la aplicación
-              const AppLogo(size: 60),
+              // Botón back
+              Padding(
+                padding: const EdgeInsets.only(top: 16.0, bottom: 32.0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               
               const SizedBox(height: 40),
               
               // Título
               const Text(
-                'Tipo de cuenta',
+                'Tipo de Cuenta',
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 24,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
+                  letterSpacing: 0.5,
                 ),
               ),
               
@@ -56,16 +67,17 @@ class AccountTypeSelectionScreen extends StatelessWidget {
               // Subtítulo
               Text(
                 'Selecciona el tipo de cuenta que quieres crear',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey[600],
+                  color: Colors.white.withOpacity(0.9),
+                  height: 1.4,
                 ),
-                textAlign: TextAlign.center,
               ),
               
-              const SizedBox(height: 40),
+              const SizedBox(height: 50),
               
-              // Botón Personal
+              // Tarjeta Personal
               _AccountTypeCard(
                 title: 'Personal',
                 subtitle: 'Para personas que buscan o ofrecen trabajos ocasionales',
@@ -73,30 +85,32 @@ class AccountTypeSelectionScreen extends StatelessWidget {
                 onTap: () => _selectPersonal(context),
               ),
               
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               
-              // Botón Empresarial
+              // Tarjeta Empresarial
               _AccountTypeCard(
                 title: 'Empresarial',
-                subtitle: 'Para empresas que necesitan contratar servicios',
+                subtitle: 'Para empresas que necesitan contratar u ofrecer servicios',
                 icon: Icons.business,
                 onTap: () => _selectEmpresarial(context),
               ),
               
+              // Spacer flexible
               const Spacer(),
               
               // Indicador de página
-              Container(
-                margin: const EdgeInsets.only(bottom: 20),
+              Center(
                 child: Container(
-                  width: 40,
+                  width: 50,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFC5414B), // Rojo POLO 52
+                    color: Colors.black,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
+              
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -125,19 +139,19 @@ class _AccountTypeCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.grey[300]!,
+            color: Colors.white.withOpacity(0.2),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -145,20 +159,20 @@ class _AccountTypeCard extends StatelessWidget {
           children: [
             // Ícono
             Container(
-              width: 40,
-              height: 40,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
                 color: Colors.black,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
                 icon,
                 color: Colors.white,
-                size: 22,
+                size: 28,
               ),
             ),
             
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
             
             // Textos
             Expanded(
@@ -169,21 +183,22 @@ class _AccountTypeCard extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
+                      letterSpacing: 0.3,
                     ),
                   ),
                   
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   
                   // Subtítulo
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       color: Colors.grey[600],
-                      height: 1.3,
+                      height: 1.4,
                     ),
                   ),
                 ],
@@ -191,10 +206,18 @@ class _AccountTypeCard extends StatelessWidget {
             ),
             
             // Flecha
-            Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.grey[400],
-              size: 16,
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.grey[600],
+                size: 16,
+              ),
             ),
           ],
         ),

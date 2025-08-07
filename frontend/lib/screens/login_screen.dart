@@ -1,9 +1,11 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+
 import '../components/app_logo.dart';
 import '../components/custom_text_field.dart';
 import '../components/primary_button.dart';
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -18,11 +20,33 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  // Variables para errores
+  bool _emailError = false;
+  bool _passwordError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailOrDniController.addListener(_clearErrors);
+    _passwordController.addListener(_clearErrors);
+  }
+
   @override
   void dispose() {
+    _emailOrDniController.removeListener(_clearErrors);
+    _passwordController.removeListener(_clearErrors);
     _emailOrDniController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _clearErrors() {
+    if (_emailError || _passwordError) {
+      setState(() {
+        _emailError = false;
+        _passwordError = false;
+      });
+    }
   }
 
   void _togglePasswordVisibility() {
@@ -32,189 +56,183 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onLogin() async {
-    if (_emailOrDniController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor completa todos los campos')),
+    setState(() {
+      _emailError = _emailOrDniController.text.isEmpty;
+      _passwordError = _passwordController.text.isEmpty;
+    });
+    if (_emailError || _passwordError) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await AuthService.signInWithEmail(
+        emailOrDni: _emailOrDniController.text.trim(),
+        password: _passwordController.text,
       );
-      return;
+      if (response.user != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Sesión iniciada correctamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    // Simular proceso de login
-    await Future.delayed(const Duration(seconds: 2));
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    // Aquí implementarás la lógica de login
-    print('Login con: ${_emailOrDniController.text}');
-    print('Contraseña: ${_passwordController.text}');
-    
-    // Navegar a la pantalla principal después del login
-    // Navigator.pushReplacementNamed(context, '/home');
   }
 
   void _goToCreateAccount() {
-    // Navegar a la pantalla de selección de tipo de cuenta
     Navigator.pushNamed(context, '/account-type-selection');
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 60),
-              
-              // Logo de la aplicación
-              const AppLogo(),
-              
-              const SizedBox(height: 50),
-              
-              // Título
-              const Text(
-                'Iniciar Sesión',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
+      body: Column(
+        children: [
+          // Sección superior
+          Container(
+            height: screenHeight * 0.4,
+            width: double.infinity,
+            color: Colors.black,
+            child: SafeArea(
+              bottom: false,
+              child: Center(
+                child: AppLogo(size: 100, isDarkBackground: true),
               ),
-              
-              const SizedBox(height: 40),
-              
-              // Campo Email o DNI
-              CustomTextField(
-                controller: _emailOrDniController,
-                hintText: 'Email o DNI',
-                keyboardType: TextInputType.text,
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Campo Contraseña
-              CustomTextField(
-                controller: _passwordController,
-                hintText: 'Contraseña',
-                obscureText: _obscurePassword,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                    color: Colors.grey[600],
-                  ),
-                  onPressed: _togglePasswordVisibility,
-                ),
-              ),
-              
-              const SizedBox(height: 8),
-              
-              // Link "¿Olvidaste tu contraseña?"
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {
-                    // Navegar a recuperar contraseña
-                    print('Recuperar contraseña');
-                  },
-                  child: Text(
-                    '¿Olvidaste tu contraseña?',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Botón Iniciar Sesión
-              PrimaryButton(
-                text: 'Iniciar Sesión',
-                onPressed: _onLogin,
-                isLoading: _isLoading,
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Separador "O"
-              Row(
-                children: [
-                  Expanded(
-                    child: Divider(
-                      color: Colors.grey[400],
-                      thickness: 1,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'O',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Divider(
-                      color: Colors.grey[400],
-                      thickness: 1,
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Link "Crear cuenta"
-              RichText(
-                text: TextSpan(
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.black,
-                  ),
-                  children: [
-                    const TextSpan(text: '¿No tienes cuenta? '),
-                    TextSpan(
-                      text: 'Crear cuenta',
-                      style: const TextStyle(
-                        color: Color(0xFFC5414B), // Rojo POLO 52
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.underline,
-                      ),
-                      recognizer: TapGestureRecognizer()..onTap = _goToCreateAccount,
-                    ),
-                  ],
-                ),
-              ),
-              
-              const Spacer(),
-              
-              // Indicador de página
-              Container(
-                margin: const EdgeInsets.only(bottom: 20),
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFC5414B), // Rojo POLO 52
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+
+          // Sección inferior
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              color: const Color(0xFFC5414B),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Iniciar Sesión',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      CustomTextField(
+                        controller: _emailOrDniController,
+                        hintText: 'Email o DNI',
+                        keyboardType: TextInputType.text,
+                        hasError: _emailError,
+                        errorText: _emailError ? 'Campo obligatorio*' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      CustomTextField(
+                        controller: _passwordController,
+                        hintText: 'Contraseña',
+                        obscureText: _obscurePassword,
+                        hasError: _passwordError,
+                        errorText: _passwordError ? 'Campo obligatorio*' : null,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                            color: Colors.grey[600],
+                          ),
+                          onPressed: _togglePasswordVisibility,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => print('Recuperar contraseña'),
+                          child: const Text(
+                            '¿Olvidaste tu contraseña?',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      PrimaryButton(
+                        text: 'Iniciar Sesión',
+                        onPressed: _onLogin,
+                        isLoading: _isLoading,
+                        isDarkStyle: true,
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(child: Container(height: 1, color: Colors.white.withOpacity(0.4))),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text('O', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
+                          ),
+                          Expanded(child: Container(height: 1, color: Colors.white.withOpacity(0.4))),
+                        ],
+                      ),
+                      const Spacer(),
+                      Center(
+                        child: RichText(
+                          textAlign: TextAlign.center,
+                          text: TextSpan(
+                            style: const TextStyle(fontSize: 15, color: Colors.white),
+                            children: [
+                              const TextSpan(text: '¿No tienes cuenta? '),
+                              TextSpan(
+                                text: 'Crear cuenta',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                  decorationThickness: 2,
+                                ),
+                                recognizer: TapGestureRecognizer()..onTap = _goToCreateAccount,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: Container(
+                          width: 50,
+                          height: 4,
+                          decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(2)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 
 class AppLogo extends StatelessWidget {
   final double size;
-
-  const AppLogo({Key? key, this.size = 80}) : super(key: key);
+  final bool isDarkBackground; // ← NUEVO PARÁMETRO
+  
+  const AppLogo({
+    Key? key, 
+    this.size = 80,
+    this.isDarkBackground = false, // ← NUEVO PARÁMETRO
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -14,15 +19,19 @@ class AppLogo extends StatelessWidget {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: Colors.white,
+            // ← CAMBIO: Fondo bordó cuando está en fondo negro
+            color: isDarkBackground ? const Color(0xFFC5414B) : Colors.white,
             borderRadius: BorderRadius.circular(size * 0.2),
             border: Border.all(
-              color: const Color(0xFFC5414B), // Rojo POLO 52
+              // ← CAMBIO: Borde blanco cuando está en fondo negro
+              color: isDarkBackground ? Colors.white : const Color(0xFFC5414B),
               width: 2,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFC5414B).withOpacity(0.1),
+                color: isDarkBackground 
+                    ? Colors.black.withOpacity(0.3) // ← CAMBIO: Sombra negra
+                    : const Color(0xFFC5414B).withOpacity(0.1),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -35,23 +44,19 @@ class AppLogo extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.contain,
-              // Si no tienes la imagen aún, mostramos un fallback
               errorBuilder: (context, error, stackTrace) {
                 return Container(
                   width: size,
                   height: size,
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: isDarkBackground ? const Color(0xFFC5414B) : Colors.grey[100],
                     borderRadius: BorderRadius.circular(size * 0.2),
                   ),
                   child: Center(
-                    child: Text(
-                      'ca',
-                      style: TextStyle(
-                        fontSize: size * 0.4,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
+                    child: Icon(
+                      Icons.business, // ← CAMBIO: Ícono más apropiado
+                      size: size * 0.5,
+                      color: Colors.white, // ← CAMBIO: Siempre blanco
                     ),
                   ),
                 );
@@ -60,12 +65,23 @@ class AppLogo extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          'ChangApp',
+        Text(
+          'ChangApp', // ← YA ESTÁ CORRECTO
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 28, // ← CAMBIO: Más grande como pediste
             fontWeight: FontWeight.bold,
-            color: Colors.black,
+            color: isDarkBackground ? Colors.white : Colors.black, // ← CAMBIO: Color según fondo
+            letterSpacing: 1.2, // ← CAMBIO: Espaciado para elegancia
+          ),
+        ),
+        const SizedBox(height: 8), // ← NUEVO
+        Text(
+          'Polo 52 - Parque industrial', // ← NUEVO SUBTÍTULO
+          style: TextStyle(
+            fontSize: 14,
+            color: isDarkBackground 
+                ? Colors.white.withOpacity(0.7) 
+                : Colors.grey[600],
           ),
         ),
       ],

@@ -69,6 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
         emailOrDni: _emailOrDniController.text.trim(),
         password: _passwordController.text,
       );
+      
       if (response.user != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -76,7 +77,16 @@ class _LoginScreenState extends State<LoginScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pushReplacementNamed(context, '/home');
+        
+        // ✅ VERIFICAR SI COMPLETÓ ONBOARDING - MÉTODO CORRECTO
+        final hasCompleted = await AuthService.hasCompletedOnboarding();
+        if (hasCompleted) {
+          // Usuario ya completó onboarding, ir a home
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          // Primera vez o no completó, ir a selección de rol
+          Navigator.pushReplacementNamed(context, '/role-selection');
+        }
       }
     } catch (error) {
       if (mounted) {

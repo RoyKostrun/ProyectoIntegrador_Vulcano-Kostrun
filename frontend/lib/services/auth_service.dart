@@ -281,7 +281,7 @@ class AuthService {
       print('✅ Insertado en tabla usuario: $userResponse');
       final userId = userResponse['id_usuario'];
 
-      // 2. Insertar en tabla usuario_persona
+      // 2. Insertar en tabla específica según tipo de usuario
       if (tipoUsuario == 'PERSONA') {
         final personaData = {
           'id_usuario': userId,
@@ -298,6 +298,18 @@ class AuthService {
         print('📦 Insertando en usuario_persona: $personaData');
         await supabase.from('usuario_persona').insert(personaData);
         print('✅ Insertado en usuario_persona');
+      } else if (tipoUsuario == 'EMPRESA') {
+        final empresaData = {
+          'id_usuario': userId,
+          'nombre_corporativo': profileData['nombreCorporativo'],
+          'razon_social': profileData['razonSocial'],
+          'cuit': profileData['cuit'],
+          'representante_legal': profileData['representanteLegal'],
+        };
+
+        print('📦 Insertando en usuario_empresa: $empresaData');
+        await supabase.from('usuario_empresa').insert(empresaData);
+        print('✅ Insertado en usuario_empresa');
       }
 
       // 3. Obtener usuario completo con manejo de null
@@ -376,6 +388,169 @@ class AuthService {
       throw 'Error al crear ubicación: $error';
     }
   }
+
+  // ========================================
+  // MÉTODOS DE ONBOARDING - NUEVOS
+  // ========================================
+  
+  /// Verificar si el usuario completó el onboarding
+  static Future<bool> hasCompletedOnboarding() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return false;
+
+      final response = await supabase
+          .from('usuario')
+          .select('onboarding_completed')
+          .eq('email', user.email!)
+          .single();
+
+      return response['onboarding_completed'] ?? false;
+    } catch (e) {
+      print('❌ Error verificando onboarding: $e');
+      return false;
+    }
+  }
+
+  /// Marcar onboarding como completado
+  static Future<void> markOnboardingCompleted() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) throw 'Usuario no autenticado';
+
+      await supabase
+          .from('usuario')
+          .update({'onboarding_completed': true})
+          .eq('email', user.email!);
+          
+      print('✅ Onboarding marcado como completado');
+    } catch (e) {
+      print('❌ Error marcando onboarding: $e');
+      throw 'Error al marcar onboarding: $e';
+    }
+  }
+
+  /// Actualizar rol del usuario
+// Reemplaza el método updateUserRole en tu AuthService
+
+  static Future<void> updateUserRole(String role) async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) throw 'Usuario no autenticado';
+
+      print('📋 Actualizando rol a: $role');
+
+      // Obtener datos del usuario para saber si es PERSONA o EMPRESA
+      final userResponse = await supabase
+          .from('usuario')
+          .select('id_usuario, tipo_usuario')
+          .eq('email', user.email!)
+          .single();
+
+      final idUsuario = userResponse['id_usuario'];
+      final tipoUsuario = userResponse['tipo_usuario'];
+
+      print('📋 Usuario ID: $idUsuario, Tipo: $tipoUsuario');
+
+      // Actualizar según el tipo de usuario
+      if (tipoUsuario == 'PERSONA') {
+        // Para personas, actualizar en usuario_persona
+        await supabase
+            .from('usuario_persona')
+            .update({'rol': role})
+            .eq('id_usuario', idUsuario);
+            
+        print('✅ Rol actualizado en usuario_persona');
+        
+      } else if (tipoUsuario == 'EMPRESA') {
+        // Para empresas, actualizar en usuario_empresa
+        // NOTA: Necesitas agregar el campo 'rol' a la tabla usuario_empresa
+        await supabase
+            .from('usuario_empresa')
+            .update({'rol': role})
+            .eq('id_usuario', idUsuario);
+            
+        print('✅ Rol actualizado en usuario_empresa');
+      }
+          
+      print('✅ Rol de usuario actualizado a: $role');
+    } catch (e) {
+      print('❌ Error actualizando rol: $e');
+      throw 'Error al actualizar rol: $e';
+    }
+  }
+
+  /// Guardar rubros seleccionados por el usuario
+  static Future<void> saveUserRubros(List<String> rubrosNames) async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) throw 'Usuario no autenticado';
+
+      print('📋 Iniciando guardado de rubros: $rubrosNames');
+
+      // 1. Obtener IDs de los rubros por nombre
+      print('📋 Buscando rubros en BD...');
+      final rubrosResponse = await supabase
+          .from('rubro')
+          .select('id_rubro, nombre')
+          .inFilter('nombre', rubrosNames);
+
+      print('📋 Rubros encontrados en BD: $rubrosResponse');
+
+      if (rubrosResponse.isEmpty) {
+        throw 'No se encontraron rubros con los nombres: $rubrosNames';
+      }
+      
+      // 2. Obtener el id_usuario desde la tabla usuario
+      print('📋 Buscando usuario con email: ${user.email}');
+      final userResponse = await supabase
+          .from('usuario')
+          .select('id_usuario')
+          .eq('email', user.email!)
+          .single();
+
+      final idUsuario = userResponse['id_usuario'];
+      print('📋 ID Usuario encontrado: $idUsuario');
+
+      // 3. Verificar si ya tiene rubros asignados (limpiar primero)
+      print('📋 Limpiando rubros anteriores...');
+      await supabase
+          .from('usuario_rubro')
+          .delete()
+          .eq('id_usuario', idUsuario);
+
+      // 4. Preparar las relaciones para insertar
+      final List<Map<String, dynamic>> relaciones = [];
+      for (final rubro in rubrosResponse) {
+        relaciones.add({
+          'id_usuario': idUsuario,
+          'id_rubro': rubro['id_rubro'],
+          'fecha_asignacion': DateTime.now().toIso8601String(),
+          'activo': true,
+        });
+      }
+
+      print('📋 Relaciones a insertar: $relaciones');
+
+      // 5. Insertar las nuevas relaciones
+      final insertResponse = await supabase
+          .from('usuario_rubro')
+          .insert(relaciones)
+          .select(); // Para confirmar la inserción
+
+      print('📋 Rubros insertados exitosamente: $insertResponse');
+      print('✅ ${relaciones.length} rubros guardados correctamente');
+
+    } catch (e) {
+      print('❌ Error detallado guardando rubros: $e');
+      print('❌ Stack trace: ${StackTrace.current}');
+      throw 'Error al guardar rubros: $e';
+    }
+  }
+
+  // ========================================
+  // MÉTODOS DE UBICACIONES - EXISTENTES
+  // ========================================
 
   // ✅ Obtener ubicaciones del usuario
   static Future<List<Map<String, dynamic>>> getUserLocations() async {

@@ -1,5 +1,6 @@
 // lib/screens/register_empresarial_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Para CUIT validation
 import '../components/section_container.dart';
 import '../components/custom_text_field.dart';
 import '../components/primary_button.dart';
@@ -25,11 +26,11 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
   final _confirmPasswordController = TextEditingController();
   final _telefonoController = TextEditingController();
   final _nombreUbicacionController = TextEditingController();
+  final _provinciaController = TextEditingController(); // ✅ REORDENADO: Provincia primero
+  final _ciudadController = TextEditingController(); // ✅ REORDENADO: Ciudad segundo
   final _calleController = TextEditingController();
   final _barrioController = TextEditingController();
   final _numeroController = TextEditingController();
-  final _provinciaController = TextEditingController();
-  final _ciudadController = TextEditingController();
   final _codigoPostalController = TextEditingController();
 
   // Estados de progreso de secciones
@@ -53,10 +54,10 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
   String? _errorConfirmPassword;
   String? _errorTelefono;
   String? _errorNombreUbicacion;
-  String? _errorCalle;
-  String? _errorNumero;
   String? _errorProvincia;
   String? _errorCiudad;
+  String? _errorCalle;
+  String? _errorNumero;
 
   @override
   void initState() {
@@ -75,10 +76,10 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
     _telefonoController.addListener(_validateInformacionContacto);
     
     _nombreUbicacionController.addListener(_validateInformacionUbicacion);
-    _calleController.addListener(_validateInformacionUbicacion);
-    _numeroController.addListener(_validateInformacionUbicacion);
     _provinciaController.addListener(_validateInformacionUbicacion);
     _ciudadController.addListener(_validateInformacionUbicacion);
+    _calleController.addListener(_validateInformacionUbicacion);
+    _numeroController.addListener(_validateInformacionUbicacion);
   }
 
   @override
@@ -103,7 +104,7 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
     super.dispose();
   }
 
-  // Validación de Datos de Empresa (Sección 1)
+  // ✅ MEJORADO: Validación de Datos de Empresa con CUIT
   void _validateDatosEmpresa() {
     setState(() {
       _errorNombreCorporativo = Validators.validateRequired(
@@ -114,10 +115,8 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
         _razonSocialController.text,
         'Razón Social',
       );
-      _errorCuit = Validators.validateRequired(
-        _cuitController.text,
-        'CUIT',
-      );
+      // ✅ VALIDACIÓN CUIT MEJORADA (11 dígitos)
+      _errorCuit = _validateCUIT(_cuitController.text);
       _errorRepresentante = Validators.validateRequired(
         _representanteController.text,
         'Representante Legal',
@@ -132,6 +131,22 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
                               _cuitController.text.trim().isNotEmpty &&
                               _representanteController.text.trim().isNotEmpty;
     });
+  }
+
+  // ✅ NUEVO: Validador específico para CUIT
+  String? _validateCUIT(String value) {
+    if (value.isEmpty) return 'CUIT es obligatorio';
+    
+    // Remover guiones y espacios
+    String cleanCuit = value.replaceAll(RegExp(r'[-\s]'), '');
+    
+    // Verificar que tenga exactamente 11 dígitos
+    if (cleanCuit.length != 11) return 'CUIT debe tener 11 dígitos';
+    
+    // Verificar que solo contenga números
+    if (!RegExp(r'^[0-9]+$').hasMatch(cleanCuit)) return 'CUIT debe contener solo números';
+    
+    return null;
   }
 
   // Validación de Información de Cuenta (Sección 2)
@@ -167,27 +182,27 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
     });
   }
 
-  // Validación de Información de Ubicación (Sección 4)
+  // ✅ ACTUALIZADO: Validación de Información de Ubicación (nuevo orden)
   void _validateInformacionUbicacion() {
     if (!_informacionContactoCompleta) return;
     
     setState(() {
       _errorNombreUbicacion = Validators.validateRequired(_nombreUbicacionController.text, 'Nombre ubicación');
-      _errorCalle = Validators.validateStreet(_calleController.text);
-      _errorNumero = Validators.validateRequired(_numeroController.text, 'Número');
       _errorProvincia = Validators.validateRequired(_provinciaController.text, 'Provincia');
       _errorCiudad = Validators.validateRequired(_ciudadController.text, 'Ciudad');
+      _errorCalle = Validators.validateStreet(_calleController.text);
+      _errorNumero = Validators.validateRequired(_numeroController.text, 'Número');
       
       _informacionUbicacionCompleta = _errorNombreUbicacion == null &&
-                                     _errorCalle == null &&
-                                     _errorNumero == null &&
                                      _errorProvincia == null &&
                                      _errorCiudad == null &&
+                                     _errorCalle == null &&
+                                     _errorNumero == null &&
                                      _nombreUbicacionController.text.trim().isNotEmpty &&
-                                     _calleController.text.trim().isNotEmpty &&
-                                     _numeroController.text.trim().isNotEmpty &&
                                      _provinciaController.text.trim().isNotEmpty &&
-                                     _ciudadController.text.trim().isNotEmpty;
+                                     _ciudadController.text.trim().isNotEmpty &&
+                                     _calleController.text.trim().isNotEmpty &&
+                                     _numeroController.text.trim().isNotEmpty;
     });
   }
 
@@ -217,6 +232,7 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
           'cuit': _cuitController.text.trim(),
           'representanteLegal': _representanteController.text.trim(),
           'telefono': _telefonoController.text.trim(),
+          'contrasena': _passwordController.text,
         };
 
         await AuthService.createUserProfile(
@@ -238,20 +254,20 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
 
         await AuthService.createUserLocation(ubicacionData);
 
-        // 4. Mostrar éxito y navegar
+        // ✅ CORREGIDO: Navegar al flujo de onboarding (rol → rubros)
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('¡Cuenta creada exitosamente!'),
+              content: Text('¡Cuenta empresarial creada exitosamente!'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 2),
             ),
           );
           
-          // Navegar a login después de 2 segundos
+          // ✅ CAMBIO IMPORTANTE: Navegar a selección de roles (igual que personas)
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted) {
-              Navigator.pushReplacementNamed(context, '/login');
+              Navigator.pushReplacementNamed(context, '/role-selection');
             }
           });
         }
@@ -325,7 +341,7 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
               
               const SizedBox(height: 32),
 
-              // SECCIÓN 1: Datos de Empresa - USANDO SECTIONCONTAINER
+              // SECCIÓN 1: Datos de Empresa
               SectionContainer(
                 title: '1. Datos de Empresa',
                 isCompleted: _datosEmpresaCompletos,
@@ -345,12 +361,44 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
                     errorText: _errorRazonSocial,
                   ),
                   const SizedBox(height: 16),
-                  CustomTextField(
+                  // ✅ MEJORADO: CUIT con validación estricta
+                  TextFormField(
                     controller: _cuitController,
-                    hintText: 'CUIT',
                     keyboardType: TextInputType.number,
-                    hasError: _errorCuit != null,
-                    errorText: _errorCuit,
+                    maxLength: 13, // 11 dígitos + 2 guiones
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9\-]')), // Solo números y guiones
+                      LengthLimitingTextInputFormatter(13),
+                      _CUITInputFormatter(), // ✅ Formatter personalizado
+                    ],
+                    decoration: InputDecoration(
+                      hintText: 'CUIT (XX-XXXXXXXX-X)',
+                      hintStyle: TextStyle(color: Colors.grey.shade600),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: _errorCuit != null ? Colors.red : const Color(0xFF012345),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: _errorCuit != null ? Colors.red : Colors.grey.shade300,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: _errorCuit != null ? Colors.red : const Color(0xFF012345),
+                          width: 2,
+                        ),
+                      ),
+                      errorText: _errorCuit,
+                      counterText: '${_cuitController.text.replaceAll(RegExp(r'[-\s]'), '').length}/11',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
@@ -364,7 +412,7 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
 
               const SizedBox(height: 24),
 
-              // SECCIÓN 2: Información de Cuenta - USANDO SECTIONCONTAINER
+              // SECCIÓN 2: Información de Cuenta
               SectionContainer(
                 title: '2. Información de Cuenta',
                 isCompleted: _informacionCuentaCompleta,
@@ -372,7 +420,7 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
                 children: [
                   CustomTextField(
                     controller: _emailController,
-                    hintText: 'Email',
+                    hintText: 'Email Corporativo',
                     keyboardType: TextInputType.emailAddress,
                     hasError: _errorEmail != null,
                     errorText: _errorEmail,
@@ -415,7 +463,7 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
 
               const SizedBox(height: 24),
 
-              // SECCIÓN 3: Información de Contacto - USANDO SECTIONCONTAINER
+              // SECCIÓN 3: Información de Contacto
               SectionContainer(
                 title: '3. Información de Contacto',
                 isCompleted: _informacionContactoCompleta,
@@ -423,7 +471,7 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
                 children: [
                   CustomTextField(
                     controller: _telefonoController,
-                    hintText: 'Teléfono',
+                    hintText: 'Teléfono Corporativo',
                     keyboardType: TextInputType.phone,
                     hasError: _errorTelefono != null,
                     errorText: _errorTelefono,
@@ -434,7 +482,7 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
 
               const SizedBox(height: 24),
 
-              // SECCIÓN 4: Información de Ubicación - USANDO SECTIONCONTAINER
+              // ✅ SECCIÓN 4: Información de Ubicación (REORDENADA como personas)
               SectionContainer(
                 title: '4. Información de Ubicación',
                 isCompleted: _informacionUbicacionCompleta,
@@ -448,6 +496,33 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
                     enabled: _informacionContactoCompleta,
                   ),
                   const SizedBox(height: 16),
+                  // ✅ 1. PROVINCIA (primero)
+                  CustomTextField(
+                    controller: _provinciaController,
+                    hintText: 'Seleccionar Provincia',
+                    isDropdown: true,
+                    options: ProvincesCities.provinces,
+                    hasError: _errorProvincia != null,
+                    errorText: _errorProvincia,
+                    enabled: _informacionContactoCompleta,
+                    onOptionSelected: (province) {
+                      _ciudadController.clear();
+                      _validateInformacionUbicacion();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // ✅ 2. CIUDAD (segundo)
+                  CustomTextField(
+                    controller: _ciudadController,
+                    hintText: 'Seleccionar Ciudad',
+                    isDropdown: true,
+                    options: ProvincesCities.getCitiesByProvince(_provinciaController.text),
+                    hasError: _errorCiudad != null,
+                    errorText: _errorCiudad,
+                    enabled: _informacionContactoCompleta && _provinciaController.text.isNotEmpty,
+                  ),
+                  const SizedBox(height: 16),
+                  // ✅ 3. CALLE Y NÚMERO (tercero)
                   Row(
                     children: [
                       Expanded(
@@ -475,36 +550,14 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  // ✅ 4. BARRIO (cuarto - opcional)
                   CustomTextField(
                     controller: _barrioController,
                     hintText: 'Barrio (Opcional)',
                     enabled: _informacionContactoCompleta,
                   ),
                   const SizedBox(height: 16),
-                  CustomTextField(
-                    controller: _provinciaController,
-                    hintText: 'Seleccionar Provincia',
-                    isDropdown: true,
-                    options: ProvincesCities.provinces,
-                    hasError: _errorProvincia != null,
-                    errorText: _errorProvincia,
-                    enabled: _informacionContactoCompleta,
-                    onOptionSelected: (province) {
-                      _ciudadController.clear();
-                      _validateInformacionUbicacion();
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    controller: _ciudadController,
-                    hintText: 'Seleccionar Ciudad',
-                    isDropdown: true,
-                    options: ProvincesCities.getCitiesByProvince(_provinciaController.text),
-                    hasError: _errorCiudad != null,
-                    errorText: _errorCiudad,
-                    enabled: _informacionContactoCompleta && _provinciaController.text.isNotEmpty,
-                  ),
-                  const SizedBox(height: 16),
+                  // ✅ 5. CÓDIGO POSTAL (quinto - opcional)
                   CustomTextField(
                     controller: _codigoPostalController,
                     hintText: 'Código Postal (Opcional)',
@@ -518,7 +571,7 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
 
               // Botón usando componente reutilizable
               PrimaryButton(
-                text: _canRegister ? 'Crear Cuenta' : 'Completa todos los campos',
+                text: _canRegister ? 'Crear Cuenta Empresarial' : 'Completa todos los campos',
                 onPressed: _canRegister ? _register : () {},
                 isLoading: _isLoading,
               ),
@@ -529,5 +582,34 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
         ),
       ),
     );
+  }
+}
+
+// ✅ NUEVO: Formatter para CUIT con formato XX-XXXXXXXX-X
+class _CUITInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String text = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    
+    if (text.length <= 2) {
+      return newValue.copyWith(text: text);
+    } else if (text.length <= 10) {
+      String formatted = '${text.substring(0, 2)}-${text.substring(2)}';
+      return newValue.copyWith(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    } else if (text.length <= 11) {
+      String formatted = '${text.substring(0, 2)}-${text.substring(2, 10)}-${text.substring(10)}';
+      return newValue.copyWith(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+    
+    return oldValue;
   }
 }

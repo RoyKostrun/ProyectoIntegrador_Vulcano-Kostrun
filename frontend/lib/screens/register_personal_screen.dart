@@ -1,5 +1,6 @@
 // lib/screens/register_personal_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Para input formatters
 import '../components/section_container.dart';
 import '../components/custom_text_field.dart';
 import '../components/primary_button.dart';
@@ -20,6 +21,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
   final _apellidoController = TextEditingController();
   final _dniController = TextEditingController();
   final _fechaNacimientoController = TextEditingController();
+  final _generoController = TextEditingController(); // ✅ NUEVO: Género
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -27,11 +29,11 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
   final _telefonoController = TextEditingController();
   final _contactoEmergenciaController = TextEditingController();
   final _nombreUbicacionController = TextEditingController();
+  final _provinciaController = TextEditingController(); // ✅ REORDENADO: Provincia primero
+  final _ciudadController = TextEditingController(); // ✅ REORDENADO: Ciudad segundo
   final _calleController = TextEditingController();
   final _barrioController = TextEditingController();
   final _numeroController = TextEditingController();
-  final _provinciaController = TextEditingController();
-  final _ciudadController = TextEditingController();
   final _codigoPostalController = TextEditingController();
 
   // Estados de progreso de secciones
@@ -50,6 +52,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
   String? _errorApellido;
   String? _errorDni;
   String? _errorFechaNacimiento;
+  String? _errorGenero; // ✅ NUEVO: Error género
   String? _errorEmail;
   String? _errorPassword;
   String? _errorConfirmPassword;
@@ -57,10 +60,18 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
   String? _errorTelefono;
   String? _errorContactoEmergencia;
   String? _errorNombreUbicacion;
-  String? _errorCalle;
-  String? _errorNumero;
   String? _errorProvincia;
   String? _errorCiudad;
+  String? _errorCalle;
+  String? _errorNumero;
+
+  // ✅ NUEVO: Opciones de género
+  final List<String> _generoOptions = ['M', 'F', 'X'];
+  final Map<String, String> _generoLabels = {
+    'M': 'Masculino',
+    'F': 'Femenino',
+    'X': 'No binario/Prefiero no decir',
+  };
 
   @override
   void initState() {
@@ -71,6 +82,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
     _apellidoController.addListener(_validateDatosPersonales);
     _dniController.addListener(_validateDatosPersonales);
     _fechaNacimientoController.addListener(_validateDatosPersonales);
+    _generoController.addListener(_validateDatosPersonales); // ✅ NUEVO
     
     _emailController.addListener(_validateInformacionCuenta);
     _passwordController.addListener(_validateInformacionCuenta);
@@ -81,10 +93,10 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
     _contactoEmergenciaController.addListener(_validateInformacionContacto);
     
     _nombreUbicacionController.addListener(_validateInformacionUbicacion);
-    _calleController.addListener(_validateInformacionUbicacion);
-    _numeroController.addListener(_validateInformacionUbicacion);
     _provinciaController.addListener(_validateInformacionUbicacion);
     _ciudadController.addListener(_validateInformacionUbicacion);
+    _calleController.addListener(_validateInformacionUbicacion);
+    _numeroController.addListener(_validateInformacionUbicacion);
   }
 
   @override
@@ -94,6 +106,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
     _apellidoController.dispose();
     _dniController.dispose();
     _fechaNacimientoController.dispose();
+    _generoController.dispose(); // ✅ NUEVO
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -111,22 +124,25 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
     super.dispose();
   }
 
-  // Validación de Datos Personales (Sección 1)
+  // ✅ MEJORADO: Validación de Datos Personales (incluye género)
   void _validateDatosPersonales() {
     setState(() {
       _errorNombre = Validators.validateName(_nombreController.text);
       _errorApellido = Validators.validateName(_apellidoController.text);
       _errorDni = Validators.validateDNI(_dniController.text);
       _errorFechaNacimiento = Validators.validateBirthDate(_fechaNacimientoController.text);
+      _errorGenero = _generoController.text.isEmpty ? 'Selecciona un género' : null; // ✅ NUEVO
       
       _datosPersonalesCompletos = _errorNombre == null &&
                                  _errorApellido == null &&
                                  _errorDni == null &&
                                  _errorFechaNacimiento == null &&
+                                 _errorGenero == null && // ✅ NUEVO
                                  _nombreController.text.trim().isNotEmpty &&
                                  _apellidoController.text.trim().isNotEmpty &&
                                  _dniController.text.trim().isNotEmpty &&
-                                 _fechaNacimientoController.text.trim().isNotEmpty;
+                                 _fechaNacimientoController.text.trim().isNotEmpty &&
+                                 _generoController.text.trim().isNotEmpty; // ✅ NUEVO
     });
   }
 
@@ -169,27 +185,27 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
     });
   }
 
-  // Validación de Información de Ubicación (Sección 4)
+  // ✅ ACTUALIZADO: Validación de Información de Ubicación (nuevo orden)
   void _validateInformacionUbicacion() {
     if (!_informacionContactoCompleta) return;
     
     setState(() {
       _errorNombreUbicacion = Validators.validateRequired(_nombreUbicacionController.text, 'Nombre ubicación');
-      _errorCalle = Validators.validateStreet(_calleController.text);
-      _errorNumero = Validators.validateRequired(_numeroController.text, 'Número');
       _errorProvincia = Validators.validateRequired(_provinciaController.text, 'Provincia');
       _errorCiudad = Validators.validateRequired(_ciudadController.text, 'Ciudad');
+      _errorCalle = Validators.validateStreet(_calleController.text);
+      _errorNumero = Validators.validateRequired(_numeroController.text, 'Número');
       
       _informacionUbicacionCompleta = _errorNombreUbicacion == null &&
-                                     _errorCalle == null &&
-                                     _errorNumero == null &&
                                      _errorProvincia == null &&
                                      _errorCiudad == null &&
+                                     _errorCalle == null &&
+                                     _errorNumero == null &&
                                      _nombreUbicacionController.text.trim().isNotEmpty &&
-                                     _calleController.text.trim().isNotEmpty &&
-                                     _numeroController.text.trim().isNotEmpty &&
                                      _provinciaController.text.trim().isNotEmpty &&
-                                     _ciudadController.text.trim().isNotEmpty;
+                                     _ciudadController.text.trim().isNotEmpty &&
+                                     _calleController.text.trim().isNotEmpty &&
+                                     _numeroController.text.trim().isNotEmpty;
     });
   }
 
@@ -223,7 +239,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
           'telefono': _telefonoController.text.trim(),
           'contactoEmergencia': _contactoEmergenciaController.text.trim(),
           'fechaNacimiento': _fechaNacimientoController.text,
-          'genero': 'F', // Valor por defecto
+          'genero': _generoController.text, // ✅ CORREGIDO: Usar género seleccionado
           'rol': 'EMPLEADO', // Valor por defecto
           'contrasena': _passwordController.text,
         };
@@ -257,10 +273,10 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
             ),
           );
           
-          // Navegar a login después de 2 segundos
+          // Navegar a selección de roles
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted) {
-              Navigator.pushReplacementNamed(context, '/login');
+              Navigator.pushReplacementNamed(context, '/role-selection');
             }
           });
         }
@@ -336,7 +352,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
               
               const SizedBox(height: 32),
 
-              // SECCIÓN 1: Datos Personales - USANDO SECTIONCONTAINER
+              // ✅ SECCIÓN 1: Datos Personales (con género)
               SectionContainer(
                 title: '1. Datos Personales',
                 isCompleted: _datosPersonalesCompletos,
@@ -356,12 +372,61 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
                     errorText: _errorApellido,
                   ),
                   const SizedBox(height: 16),
-                  CustomTextField(
+                  // ✅ MEJORADO: DNI con validación estricta de 8 dígitos
+                  TextFormField(
                     controller: _dniController,
-                    hintText: 'DNI',
                     keyboardType: TextInputType.number,
-                    hasError: _errorDni != null,
-                    errorText: _errorDni,
+                    maxLength: 8, // ✅ Máximo 8 caracteres
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly, // ✅ Solo números
+                      LengthLimitingTextInputFormatter(8), // ✅ Límite estricto
+                    ],
+                    decoration: InputDecoration(
+                      hintText: 'DNI (8 dígitos)',
+                      hintStyle: TextStyle(color: Colors.grey.shade600),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: _errorDni != null ? Colors.red : const Color(0xFF012345),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: _errorDni != null ? Colors.red : Colors.grey.shade300,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: _errorDni != null ? Colors.red : const Color(0xFF012345),
+                          width: 2,
+                        ),
+                      ),
+                      errorText: _errorDni,
+                      counterText: '${_dniController.text.length}/8', // ✅ Contador visible
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // ✅ NUEVO: Selector de género
+                  CustomTextField(
+                    controller: _generoController,
+                    hintText: 'Seleccionar Género',
+                    isDropdown: true,
+                    options: _generoOptions.map((value) => _generoLabels[value]!).toList(),
+                    hasError: _errorGenero != null,
+                    errorText: _errorGenero,
+                    onOptionSelected: (selected) {
+                      // Convertir el label seleccionado de vuelta al valor
+                      final selectedValue = _generoLabels.entries
+                          .firstWhere((entry) => entry.value == selected)
+                          .key;
+                      _generoController.text = selectedValue;
+                      _validateDatosPersonales();
+                    },
                   ),
                   const SizedBox(height: 16),
                   // Selector de fecha
@@ -400,7 +465,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
 
               const SizedBox(height: 24),
 
-              // SECCIÓN 2: Información de Cuenta - USANDO SECTIONCONTAINER
+              // SECCIÓN 2: Información de Cuenta
               SectionContainer(
                 title: '2. Información de Cuenta',
                 isCompleted: _informacionCuentaCompleta,
@@ -459,7 +524,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
 
               const SizedBox(height: 24),
 
-              // SECCIÓN 3: Información de Contacto - USANDO SECTIONCONTAINER
+              // SECCIÓN 3: Información de Contacto
               SectionContainer(
                 title: '3. Información de Contacto',
                 isCompleted: _informacionContactoCompleta,
@@ -487,7 +552,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
 
               const SizedBox(height: 24),
 
-              // SECCIÓN 4: Información de Ubicación - USANDO SECTIONCONTAINER
+              // ✅ SECCIÓN 4: Información de Ubicación (REORDENADA)
               SectionContainer(
                 title: '4. Información de Ubicación',
                 isCompleted: _informacionUbicacionCompleta,
@@ -501,6 +566,33 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
                     enabled: _informacionContactoCompleta,
                   ),
                   const SizedBox(height: 16),
+                  // ✅ 1. PROVINCIA (primero)
+                  CustomTextField(
+                    controller: _provinciaController,
+                    hintText: 'Seleccionar Provincia',
+                    isDropdown: true,
+                    options: ProvincesCities.provinces,
+                    hasError: _errorProvincia != null,
+                    errorText: _errorProvincia,
+                    enabled: _informacionContactoCompleta,
+                    onOptionSelected: (province) {
+                      _ciudadController.clear(); // Limpiar ciudad cuando cambia provincia
+                      _validateInformacionUbicacion();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // ✅ 2. CIUDAD (segundo)
+                  CustomTextField(
+                    controller: _ciudadController,
+                    hintText: 'Seleccionar Ciudad',
+                    isDropdown: true,
+                    options: ProvincesCities.getCitiesByProvince(_provinciaController.text),
+                    hasError: _errorCiudad != null,
+                    errorText: _errorCiudad,
+                    enabled: _informacionContactoCompleta && _provinciaController.text.isNotEmpty,
+                  ),
+                  const SizedBox(height: 16),
+                  // ✅ 3. CALLE Y NÚMERO (tercero)
                   Row(
                     children: [
                       Expanded(
@@ -528,36 +620,14 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  // ✅ 4. BARRIO (cuarto - opcional)
                   CustomTextField(
                     controller: _barrioController,
                     hintText: 'Barrio (Opcional)',
                     enabled: _informacionContactoCompleta,
                   ),
                   const SizedBox(height: 16),
-                  CustomTextField(
-                    controller: _provinciaController,
-                    hintText: 'Seleccionar Provincia',
-                    isDropdown: true,
-                    options: ProvincesCities.provinces,
-                    hasError: _errorProvincia != null,
-                    errorText: _errorProvincia,
-                    enabled: _informacionContactoCompleta,
-                    onOptionSelected: (province) {
-                      _ciudadController.clear();
-                      _validateInformacionUbicacion();
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    controller: _ciudadController,
-                    hintText: 'Seleccionar Ciudad',
-                    isDropdown: true,
-                    options: ProvincesCities.getCitiesByProvince(_provinciaController.text),
-                    hasError: _errorCiudad != null,
-                    errorText: _errorCiudad,
-                    enabled: _informacionContactoCompleta && _provinciaController.text.isNotEmpty,
-                  ),
-                  const SizedBox(height: 16),
+                  // ✅ 5. CÓDIGO POSTAL (quinto - opcional)
                   CustomTextField(
                     controller: _codigoPostalController,
                     hintText: 'Código Postal (Opcional)',

@@ -1,9 +1,9 @@
 //lib/screens/rubros_bubbles_screen.dart
 import 'package:flutter/material.dart';
-import '../models/rubro.dart';
-import '../services/rubro_service.dart';
-import '../services/auth_service.dart'; // 👈 Agregar import
-import '../utils/icon_helper.dart';
+import '../../models/rubro.dart';
+import '../../services/rubro_service.dart';
+import '../../services/auth_service.dart'; // 👈 Agregar import
+import '../../utils/icon_helper.dart';
 
 class RubrosBubblesScreen extends StatefulWidget {
   const RubrosBubblesScreen({Key? key}) : super(key: key);

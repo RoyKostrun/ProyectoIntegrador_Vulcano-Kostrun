@@ -1,6 +1,6 @@
 // lib/screens/role_selection_screen.dart
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import '../../services/auth_service.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({Key? key}) : super(key: key);

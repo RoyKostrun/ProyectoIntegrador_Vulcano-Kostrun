@@ -1,12 +1,12 @@
 // lib/screens/register_empresarial_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Para CUIT validation
-import '../components/section_container.dart';
-import '../components/custom_text_field.dart';
-import '../components/primary_button.dart';
-import '../services/auth_service.dart';
-import '../utils/validators.dart';
-import '../utils/provinces_cities.dart';
+import '../../components/section_container.dart';
+import '../../components/custom_text_field.dart';
+import '../../components/primary_button.dart';
+import '../../services/auth_service.dart';
+import '../../utils/validators.dart';
+import '../../utils/provinces_cities.dart';
 
 class RegisterEmpresarialScreen extends StatefulWidget {
   const RegisterEmpresarialScreen({Key? key}) : super(key: key);

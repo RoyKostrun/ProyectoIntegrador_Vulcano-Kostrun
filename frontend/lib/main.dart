@@ -2,14 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'services/supabase_client.dart';
-import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/account_type_selection_screen.dart';
-import 'screens/register_personal_screen.dart';
-import 'screens/register_empresarial_screen.dart';
-import 'screens/rubros_bubbles_screen.dart'; 
-import 'screens/role_selection_screen.dart';
-import 'screens/inicio_screen.dart';
+import 'screens/login/login_screen.dart';
+import 'screens/login/account_type_selection_screen.dart';
+import 'screens/login/register_personal_screen.dart';
+import 'screens/login/register_empresarial_screen.dart';
+import 'screens/login/rubros_bubbles_screen.dart'; 
+import 'screens/login/role_selection_screen.dart';
+import 'screens/login/inicio_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,7 +43,6 @@ class MyApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login':                    (context) => const LoginScreen(),
-        '/home':                     (context) => const HomeScreen(),
         '/account-type-selection':   (context) => const AccountTypeSelectionScreen(),
         '/register-personal':        (context) => const RegisterPersonalScreen(),
         '/register-empresarial':     (context) => const RegisterEmpresarialScreen(),

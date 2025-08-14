@@ -1,11 +1,10 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-
-import '../components/app_logo.dart';
-import '../components/custom_text_field.dart';
-import '../components/primary_button.dart';
-import '../services/auth_service.dart';
+import '../../components/app_logo.dart';
+import '../../components/custom_text_field.dart';
+import '../../components/primary_button.dart';
+import '../../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -82,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
         final hasCompleted = await AuthService.hasCompletedOnboarding();
         if (hasCompleted) {
           // Usuario ya completó onboarding, ir a home
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushReplacementNamed(context, '/inicio');
         } else {
           // Primera vez o no completó, ir a selección de rol
           Navigator.pushReplacementNamed(context, '/role-selection');

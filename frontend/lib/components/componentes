@@ -1,0 +1,645 @@
+/*
+// lib/components/account_type_selector.dart
+import 'package:flutter/material.dart';
+
+class AccountTypeSelector extends StatelessWidget {
+  final bool isPersonalSelected;
+  final bool isEmpresarialSelected;
+  final Function(bool) onSelectionChanged;
+
+  const AccountTypeSelector({
+    Key? key,
+    required this.isPersonalSelected,
+    required this.isEmpresarialSelected,
+    required this.onSelectionChanged,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _AccountTypeButton(
+            text: 'Personal',
+            isSelected: isPersonalSelected,
+            onTap: () => onSelectionChanged(true),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _AccountTypeButton(
+            text: 'Empresarial',
+            isSelected: isEmpresarialSelected,
+            onTap: () => onSelectionChanged(false),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountTypeButton extends StatelessWidget {
+  final String text;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _AccountTypeButton({
+    Key? key,
+    required this.text,
+    required this.isSelected,
+    required this.onTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFC5414B) : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// lib/components/app_logo.dart
+import 'package:flutter/material.dart';
+
+class AppLogo extends StatelessWidget {
+  final double size;
+  final bool isDarkBackground; // ← NUEVO PARÁMETRO
+  
+  const AppLogo({
+    Key? key, 
+    this.size = 80,
+    this.isDarkBackground = false, // ← NUEVO PARÁMETRO
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            // ← CAMBIO: Fondo bordó cuando está en fondo negro
+            color: isDarkBackground ? const Color(0xFFC5414B) : Colors.white,
+            borderRadius: BorderRadius.circular(size * 0.2),
+            border: Border.all(
+              // ← CAMBIO: Borde blanco cuando está en fondo negro
+              color: isDarkBackground ? Colors.white : const Color(0xFFC5414B),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDarkBackground 
+                    ? Colors.black.withOpacity(0.3) // ← CAMBIO: Sombra negra
+                    : const Color(0xFFC5414B).withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(size * 0.2),
+            child: Image.asset(
+              'assets/images/changapp_logo.png',
+              width: size,
+              height: size,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    color: isDarkBackground ? const Color(0xFFC5414B) : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(size * 0.2),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.business, // ← CAMBIO: Ícono más apropiado
+                      size: size * 0.5,
+                      color: Colors.white, // ← CAMBIO: Siempre blanco
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'ChangApp', // ← YA ESTÁ CORRECTO
+          style: TextStyle(
+            fontSize: 28, // ← CAMBIO: Más grande como pediste
+            fontWeight: FontWeight.bold,
+            color: isDarkBackground ? Colors.white : Colors.black, // ← CAMBIO: Color según fondo
+            letterSpacing: 1.2, // ← CAMBIO: Espaciado para elegancia
+          ),
+        ),
+        const SizedBox(height: 8), // ← NUEVO
+        Text(
+          'Polo 52 - Parque industrial', // ← NUEVO SUBTÍTULO
+          style: TextStyle(
+            fontSize: 14,
+            color: isDarkBackground 
+                ? Colors.white.withOpacity(0.7) 
+                : Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// lib/components/custom_text_field.dart
+import 'package:flutter/material.dart';
+
+class CustomTextField extends StatefulWidget {
+  final TextEditingController? controller;
+  final String hintText;
+  final TextInputType keyboardType;
+  final bool obscureText;
+  final bool hasError;
+  final String? errorText;
+  final bool enabled;
+  final Widget? suffixIcon;
+  final List<String>? options; // Para dropdowns
+  final Function(String)? onOptionSelected;
+  final bool isDropdown;
+
+  const CustomTextField({
+    Key? key,
+    this.controller,
+    required this.hintText,
+    this.keyboardType = TextInputType.text,
+    this.obscureText = false,
+    this.hasError = false,
+    this.errorText,
+    this.enabled = true,
+    this.suffixIcon,
+    this.options,
+    this.onOptionSelected,
+    this.isDropdown = false,
+  }) : super(key: key);
+
+  @override
+  State<CustomTextField> createState() => _CustomTextFieldState();
+}
+
+class _CustomTextFieldState extends State<CustomTextField> {
+  bool _showDropdown = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.isDropdown) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: widget.enabled ? () {
+              setState(() {
+                _showDropdown = !_showDropdown;
+              });
+            } : null,
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: widget.hasError 
+                    ? Colors.red 
+                    : widget.enabled 
+                      ? const Color(0xFF012345) 
+                      : Colors.grey.shade300,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                color: widget.enabled ? Colors.white : Colors.grey.shade100,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    widget.controller?.text.isEmpty ?? true 
+                      ? widget.hintText 
+                      : widget.controller!.text,
+                    style: TextStyle(
+                      color: widget.controller?.text.isEmpty ?? true 
+                        ? Colors.grey.shade600 
+                        : Colors.black,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Icon(
+                    _showDropdown ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: Colors.grey.shade600,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_showDropdown && widget.enabled && widget.options != null)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: widget.options!.length,
+                itemBuilder: (context, index) {
+                  return GestureDetector(
+                    onTap: () {
+                      widget.controller?.text = widget.options![index];
+                      widget.onOptionSelected?.call(widget.options![index]);
+                      setState(() {
+                        _showDropdown = false;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.grey.shade200,
+                            width: index < widget.options!.length - 1 ? 1 : 0,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        widget.options![index],
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          if (widget.hasError && widget.errorText != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                widget.errorText!,
+                style: const TextStyle(
+                  color: Colors.red,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 48,
+          child: TextFormField(
+            controller: widget.controller,
+            keyboardType: widget.keyboardType,
+            obscureText: widget.obscureText,
+            enabled: widget.enabled,
+            decoration: InputDecoration(
+              hintText: widget.hintText,
+              hintStyle: TextStyle(color: Colors.grey.shade600),
+              filled: true,
+              fillColor: widget.enabled ? Colors.white : Colors.grey.shade100,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: widget.hasError ? Colors.red : const Color(0xFF012345),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: widget.hasError ? Colors.red : Colors.grey.shade300,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: widget.hasError ? Colors.red : const Color(0xFF012345),
+                  width: 2,
+                ),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              suffixIcon: widget.suffixIcon,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+          ),
+        ),
+        if (widget.hasError && widget.errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              widget.errorText!,
+              style: const TextStyle(
+                color: Colors.red,
+                fontSize: 12,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// lib/components/primary_button.dart
+import 'package:flutter/material.dart';
+
+class PrimaryButton extends StatelessWidget {
+  final String text;
+  final VoidCallback onPressed;
+  final bool isLoading;
+  final String variant;
+  final bool isDarkStyle; // ← Agregar este parámetro
+
+  const PrimaryButton({
+    Key? key,
+    required this.text,
+    required this.onPressed,
+    this.isLoading = false,
+    this.variant = "primary",
+    this.isDarkStyle = false, // ← Valor por defecto
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    Color backgroundColor;
+    Color textColor;
+    
+    // Determinar colores según el estilo
+    if (isDarkStyle) {
+      backgroundColor = Colors.black;
+      textColor = Colors.white;
+    } else {
+      backgroundColor = variant == "primary" ? const Color(0xFFC5414B) : Colors.black;
+      textColor = Colors.white;
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: ElevatedButton(
+        onPressed: isLoading ? null : onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: backgroundColor,
+          foregroundColor: textColor,
+          disabledBackgroundColor: Colors.grey[400],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          elevation: 2,
+        ),
+        child: isLoading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : Text(
+              text,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+      ),
+    );
+  }
+}
+
+// lib/components/screen_header.dart
+import 'package:flutter/material.dart';
+
+class ScreenHeader extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final VoidCallback? onBackPressed;
+
+  const ScreenHeader({
+    Key? key,
+    required this.title,
+    required this.subtitle,
+    this.onBackPressed,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          // Botón back
+          if (onBackPressed != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: onBackPressed,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          
+          const SizedBox(height: 24),
+          
+          // Título
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+              letterSpacing: 0.5,
+            ),
+          ),
+          
+          const SizedBox(height: 8),
+          
+          // Subtítulo
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white.withOpacity(0.9),
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+// lib/components/section_container.dart
+import 'package:flutter/material.dart';
+
+class SectionContainer extends StatelessWidget {
+  final String title;
+  final bool isCompleted;
+  final bool isEnabled;
+  final List<Widget> children;
+
+  const SectionContainer({
+    Key? key,
+    required this.title,
+    required this.isCompleted,
+    required this.isEnabled,
+    required this.children,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isEnabled ? Colors.white : Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isCompleted 
+              ? Colors.green 
+              : isEnabled 
+                  ? const Color(0xFFC5414B) 
+                  : Colors.grey[300]!,
+          width: 2,
+        ),
+        boxShadow: isEnabled ? [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ] : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header de sección
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isEnabled ? Colors.black : Colors.grey[400],
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isCompleted 
+                      ? Colors.green 
+                      : isEnabled 
+                          ? const Color(0xFFC5414B) 
+                          : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  isCompleted 
+                      ? Icons.check 
+                      : isEnabled 
+                          ? Icons.edit 
+                          : Icons.lock,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
+          
+          if (!isEnabled) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lock, color: Colors.grey[500], size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Completa las secciones anteriores para continuar',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          
+          if (isEnabled) ...[
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+
+
+
+*/

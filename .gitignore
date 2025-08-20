@@ -1,0 +1,19 @@
+# --- FLUTTER (frontend) ---
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/pubspec.lock
+
+# --- NODE (backend) ---
+**/node_modules/
+**/.env
+**/dist/
+
+# --- Visual Studio Code ---
+**/.vscode/
+
+# --- Archivos del sistema ---
+.DS_Store
+Thumbs.db

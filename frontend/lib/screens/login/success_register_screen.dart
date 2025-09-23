@@ -1,4 +1,4 @@
-// lib/screens/success_register_screen.dart
+// lib/screens/login/success_register_screen.dart
 import 'package:flutter/material.dart';
 
 class SuccessScreen extends StatelessWidget {

@@ -1,4 +1,4 @@
-//lib/screens/rubros_bubbles_screen.dart
+//lib/screens/login/rubros_bubbles_screen.dart
 import 'package:flutter/material.dart';
 import '../../models/rubro.dart';
 import '../../services/rubro_service.dart';

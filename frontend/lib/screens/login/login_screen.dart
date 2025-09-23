@@ -1,4 +1,4 @@
-// lib/screens/login_screen.dart
+// lib/screens/login/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import '../../components/app_logo.dart';
@@ -81,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
         final hasCompleted = await AuthService.hasCompletedOnboarding();
         if (hasCompleted) {
           // Usuario ya completó onboarding, ir a home
-          Navigator.pushReplacementNamed(context, '/inicio');
+          Navigator.pushReplacementNamed(context, '/main-nav');
         } else {
           // Primera vez o no completó, ir a selección de rol
           Navigator.pushReplacementNamed(context, '/role-selection');

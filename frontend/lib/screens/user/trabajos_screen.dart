@@ -1,3 +1,4 @@
+// lib/screens/user/trabajos_screen.dart
 import 'package:flutter/material.dart';
 
 class TrabajosScreen extends StatefulWidget {

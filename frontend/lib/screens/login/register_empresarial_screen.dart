@@ -1,4 +1,4 @@
-// lib/screens/register_empresarial_screen.dart
+// lib/screens/login/register_empresarial_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Para CUIT validation
 import '../../components/section_container.dart';

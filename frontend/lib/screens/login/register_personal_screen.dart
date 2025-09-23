@@ -1,4 +1,4 @@
-// lib/screens/register_personal_screen.dart
+// lib/screens/login/register_personal_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Para input formatters
 import '../../components/section_container.dart';

@@ -57,16 +57,16 @@ class _InicioScreenState extends State<InicioScreen> {
 
   void _navigateToScreen(String screenName) {
     switch (screenName) {
-      case 'Perfil':
+      case 'Mi Perfil':
         _showUserProfile();
         break;
-      case 'Rubros':
+      case 'Mis Rubros':
         _showComingSoon('Gestión de Rubros');
         break;
-      case 'Ubicaciones':
+      case 'Mis Ubicaciones':
         _showComingSoon('Gestión de Ubicaciones');
         break;
-      case 'Trabajos':
+      case 'Mis Trabajos':
         _showComingSoon('Gestión de Trabajos');
         break;
       case 'Chat':

@@ -237,11 +237,12 @@ class AuthService {
       if (authUser == null) throw 'Usuario no autenticado';
 
       print('📌 Usuario autenticado: ${authUser.email}');
+      print('📌 Auth User ID (UUID): ${authUser.id}');
       print('📌 Tipo de usuario: $tipoUsuario');
       print('📌 Datos del perfil recibidos: $profileData');
 
-      // Verificar si DNI ya existe
-      if (profileData['dni'] != null) {
+      // Verificar si DNI ya existe (solo para personas)
+      if (tipoUsuario == 'PERSONA' && profileData['dni'] != null) {
         final existingDNI = await supabase
             .from('usuario_persona')
             .select('dni')
@@ -253,8 +254,8 @@ class AuthService {
         }
       }
 
-      // Verificar si username ya existe
-      if (profileData['username'] != null) {
+      // Verificar si username ya existe (solo para personas)
+      if (tipoUsuario == 'PERSONA' && profileData['username'] != null) {
         final existingUsername = await supabase
             .from('usuario_persona')
             .select('username')
@@ -266,14 +267,15 @@ class AuthService {
         }
       }
 
-      // 1. Insertar en tabla usuario
+      // 1. Insertar en tabla usuario CON auth_user_id
       final userResponse = await supabase
           .from('usuario')
           .insert({
+            'auth_user_id': authUser.id, // ✅ CRÍTICO: Vincular con UUID de auth
             'email': authUser.email,
             'tipo_usuario': tipoUsuario,
             'telefono': profileData['telefono'],
-            'contrasena': profileData['contrasena'],
+            'contrasena': profileData['contrasena'], // OK para pruebas
           })
           .select()
           .single();
@@ -312,7 +314,7 @@ class AuthService {
         print('✅ Insertado en usuario_empresa');
       }
 
-      // 3. Obtener usuario completo con manejo de null
+      // 3. Obtener usuario completo
       print('🔍 Obteniendo usuario completo...');
       final completeUser = await getCurrentUserData();
       
@@ -363,11 +365,11 @@ class AuthService {
         'id_usuario': userId,
         'nombre': ubicacionData['nombre'],
         'calle': ubicacionData['calle'],
-        'barrio': ubicacionData['barrio'], // Puede ser null
+        'barrio': ubicacionData['barrio'],
         'numero': ubicacionData['numero'],
         'ciudad': ubicacionData['ciudad'],
         'provincia': ubicacionData['provincia'],
-        'codigo_postal': ubicacionData['codigoPostal'], // Puede ser null
+        'codigo_postal': ubicacionData['codigoPostal'],
         'es_principal': ubicacionData['esPrincipal'] ?? true,
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
@@ -390,7 +392,7 @@ class AuthService {
   }
 
   // ========================================
-  // MÉTODOS DE ONBOARDING - NUEVOS
+  // MÉTODOS DE ONBOARDING
   // ========================================
   
   /// Verificar si el usuario completó el onboarding
@@ -431,8 +433,6 @@ class AuthService {
   }
 
   /// Actualizar rol del usuario
-// Reemplaza el método updateUserRole en tu AuthService
-
   static Future<void> updateUserRole(String role) async {
     try {
       final user = supabase.auth.currentUser;
@@ -440,7 +440,7 @@ class AuthService {
 
       print('📋 Actualizando rol a: $role');
 
-      // Obtener datos del usuario para saber si es PERSONA o EMPRESA
+      // Obtener datos del usuario
       final userResponse = await supabase
           .from('usuario')
           .select('id_usuario, tipo_usuario')
@@ -454,17 +454,13 @@ class AuthService {
 
       // Actualizar según el tipo de usuario
       if (tipoUsuario == 'PERSONA') {
-        // Para personas, actualizar en usuario_persona
         await supabase
             .from('usuario_persona')
             .update({'rol': role})
             .eq('id_usuario', idUsuario);
             
         print('✅ Rol actualizado en usuario_persona');
-        
       } else if (tipoUsuario == 'EMPRESA') {
-        // Para empresas, actualizar en usuario_empresa
-        // NOTA: Necesitas agregar el campo 'rol' a la tabla usuario_empresa
         await supabase
             .from('usuario_empresa')
             .update({'rol': role})
@@ -512,7 +508,7 @@ class AuthService {
       final idUsuario = userResponse['id_usuario'];
       print('📋 ID Usuario encontrado: $idUsuario');
 
-      // 3. Verificar si ya tiene rubros asignados (limpiar primero)
+      // 3. Limpiar rubros anteriores
       print('📋 Limpiando rubros anteriores...');
       await supabase
           .from('usuario_rubro')
@@ -536,7 +532,7 @@ class AuthService {
       final insertResponse = await supabase
           .from('usuario_rubro')
           .insert(relaciones)
-          .select(); // Para confirmar la inserción
+          .select();
 
       print('📋 Rubros insertados exitosamente: $insertResponse');
       print('✅ ${relaciones.length} rubros guardados correctamente');
@@ -549,10 +545,10 @@ class AuthService {
   }
 
   // ========================================
-  // MÉTODOS DE UBICACIONES - EXISTENTES
+  // MÉTODOS DE UBICACIONES
   // ========================================
 
-  // ✅ Obtener ubicaciones del usuario
+  /// Obtener ubicaciones del usuario
   static Future<List<Map<String, dynamic>>> getUserLocations() async {
     try {
       final authUser = supabase.auth.currentUser;
@@ -571,8 +567,8 @@ class AuthService {
           .from('ubicacion')
           .select('*')
           .eq('id_usuario', userId)
-          .order('es_principal', ascending: false) // Principal primero
-          .order('created_at', ascending: false); // Más recientes primero
+          .order('es_principal', ascending: false)
+          .order('created_at', ascending: false);
 
       return List<Map<String, dynamic>>.from(response);
       
@@ -582,13 +578,13 @@ class AuthService {
     }
   }
 
-  // ✅ Actualizar ubicación principal
+  /// Actualizar ubicación principal
   static Future<void> updatePrimaryLocation(int ubicacionId) async {
     try {
       final authUser = supabase.auth.currentUser;
       if (authUser == null) throw 'Usuario no autenticado';
 
-      // Obtener el ID del usuario desde la tabla usuario
+      // Obtener el ID del usuario
       final userResponse = await supabase
           .from('usuario')
           .select('id_usuario')
@@ -597,13 +593,13 @@ class AuthService {
 
       final userId = userResponse['id_usuario'];
 
-      // Primero, quitar es_principal de todas las ubicaciones del usuario
+      // Quitar es_principal de todas las ubicaciones
       await supabase
           .from('ubicacion')
           .update({'es_principal': false})
           .eq('id_usuario', userId);
 
-      // Luego, marcar la ubicación seleccionada como principal
+      // Marcar la ubicación seleccionada como principal
       await supabase
           .from('ubicacion')
           .update({
@@ -621,13 +617,13 @@ class AuthService {
     }
   }
 
-  // ✅ Eliminar ubicación
+  /// Eliminar ubicación
   static Future<void> deleteUserLocation(int ubicacionId) async {
     try {
       final authUser = supabase.auth.currentUser;
       if (authUser == null) throw 'Usuario no autenticado';
 
-      // Obtener el ID del usuario desde la tabla usuario
+      // Obtener el ID del usuario
       final userResponse = await supabase
           .from('usuario')
           .select('id_usuario')
@@ -667,7 +663,7 @@ class AuthService {
     }
   }
 
-  // ✅ Verificar disponibilidad de DNI
+  /// Verificar disponibilidad de DNI
   static Future<bool> isDNIAvailable(String dni) async {
     try {
       final response = await supabase
@@ -682,7 +678,7 @@ class AuthService {
     }
   }
 
-  // ✅ Verificar disponibilidad de username
+  /// Verificar disponibilidad de username
   static Future<bool> isUsernameAvailable(String username) async {
     try {
       final response = await supabase

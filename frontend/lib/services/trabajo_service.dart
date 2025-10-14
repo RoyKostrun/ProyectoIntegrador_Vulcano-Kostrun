@@ -27,27 +27,4 @@ class TrabajoService {
     final response = await supabase.from('rubro').select('nombre');
     return (response as List).map((r) => r['nombre'] as String).toList();
   }
-
-  Future<List<Map<String, dynamic>>> getUbicacionesDelUsuario() async {
-    final user = supabase.auth.currentUser;
-
-    if (user == null) return [];
-
-    final response = await supabase
-        .from('ubicacion')
-        .select('id_ubicacion, nombre, ciudad')
-        .eq('id_usuario', user.userMetadata?['id_usuario']); // aseguramos id_usuario
-
-    if (response is List) {
-      return response.map<Map<String, dynamic>>((u) {
-        return {
-          'id_ubicacion': u['id_ubicacion'],
-          'nombre': u['nombre'],
-          'ciudad': u['ciudad'],
-        };
-      }).toList();
-    }
-
-    return [];
-  }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/trabajo_service.dart';
-import '../../components/custom_text_field.dart';
+import '../../services/ubicacion_service.dart';
 import '../../components/primary_button.dart';
 
 class CrearTrabajoScreen extends StatefulWidget {
@@ -13,29 +13,28 @@ class CrearTrabajoScreen extends StatefulWidget {
 
 class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   final _formKey = GlobalKey<FormState>();
-  final servicio = TrabajoService();
+  final trabajoService = TrabajoService();
+  final ubicacionService = UbicacionService();
 
-  // Controladores
   final tituloController = TextEditingController();
   final descripcionController = TextEditingController();
   final salarioController = TextEditingController();
   final horarioInicioController = TextEditingController();
   final horarioFinController = TextEditingController();
 
-  // Variables de estado
   bool isLoading = false;
+  bool isLoadingUbicaciones = true;
+  bool sinPrecio = false;
   String? selectedRubro;
   String? selectedMetodoPago;
-  String? selectedUrgencia;
   int? cantidadSeleccionada;
-  String? ubicacionSeleccionada; // id_ubicacion como string
+  String? ubicacionSeleccionada;
+  String? direccionCompleta; // ✅ NUEVO: Para mostrar dirección
   List<String> rubros = [];
   List<Map<String, dynamic>> _ubicaciones = [];
   List<DateTime> fechasSeleccionadas = [];
 
-  // Opciones predefinidas
   final List<String> metodosPago = ['EFECTIVO', 'TRANSFERENCIA'];
-  final List<String> nivelesUrgencia = ['BAJA', 'ESTANDAR', 'ALTA', 'URGENTE'];
 
   @override
   void initState() {
@@ -44,14 +43,37 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     _cargarUbicaciones();
   }
 
+  @override
+  void dispose() {
+    tituloController.dispose();
+    descripcionController.dispose();
+    salarioController.dispose();
+    horarioInicioController.dispose();
+    horarioFinController.dispose();
+    super.dispose();
+  }
+
   Future<void> _cargarRubros() async {
-    final result = await servicio.getRubros();
+    final result = await trabajoService.getRubros();
     setState(() => rubros = [...result, 'Otros']);
   }
 
   Future<void> _cargarUbicaciones() async {
-    final result = await servicio.getUbicacionesDelUsuario();
-    setState(() => _ubicaciones = result);
+    setState(() => isLoadingUbicaciones = true);
+    try {
+      final result = await ubicacionService.getUbicacionesDelUsuario();
+      setState(() {
+        _ubicaciones = result;
+        isLoadingUbicaciones = false;
+      });
+    } catch (e) {
+      setState(() => isLoadingUbicaciones = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar ubicaciones: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   String? _validarTitulo(String? value) {
@@ -62,15 +84,49 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   String? _validarDescripcion(String? value) {
     if (value == null || value.isEmpty) return 'Este campo es requerido';
-    if (value.length < 20) return 'Mínimo 20 caracteres';
+    if (value.length < 20) return 'La descripción debe tener al menos 20 caracteres';
     return null;
   }
 
-  String? _validarHorario(String? value, String campo) {
-    if (value == null || value.isEmpty) return 'Este campo es requerido';
-    final regex = RegExp(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$');
-    if (!regex.hasMatch(value)) return '$campo debe estar en formato HH:MM (24hs)';
+  String? _validarSalario(String? value) {
+    if (sinPrecio) return null;
+    if (cantidadSeleccionada == null) return null;
+    if (value == null || value.isEmpty) return 'Ingresa el precio';
+    final numero = double.tryParse(value);
+    if (numero == null) return 'Ingresa un número válido';
+    if (numero < 0) return 'El precio no puede ser negativo';
     return null;
+  }
+
+  Future<void> _seleccionarHora(TextEditingController controller, {bool abrirSiguiente = false}) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFFC5414B),
+              onPrimary: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        controller.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      });
+      
+      // ✅ Abrir automáticamente el selector de hora de fin
+      if (abrirSiguiente) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _seleccionarHora(horarioFinController);
+        });
+      }
+    }
   }
 
   Future<void> _seleccionarFecha() async {
@@ -81,8 +137,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
       locale: const Locale('es', 'ES'),
     );
-    if (picked != null && !fechasSeleccionadas.contains(picked)) {
-      setState(() => fechasSeleccionadas..add(picked)..sort());
+    if (picked != null) {
+      // ✅ Si selecciona una sola fecha, reemplaza cualquier selección anterior
+      setState(() => fechasSeleccionadas = [picked]);
     }
   }
 
@@ -108,7 +165,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     setState(() => fechasSeleccionadas.remove(fecha));
   }
 
-  Future<void> _publicarTrabajo() async {
+  void _irAAgregarUbicacion() {
+    Navigator.pushNamed(context, '/agregar-ubicacion').then((_) => _cargarUbicaciones());
+  }
+
+    Future<void> _publicarTrabajo() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Completa todos los campos obligatorios'), backgroundColor: Colors.red),
@@ -118,7 +179,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
     if (fechasSeleccionadas.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debes seleccionar al menos una fecha'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Debe seleccionar al menos una fecha para el trabajo'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -130,7 +191,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       return;
     }
 
-    // Validar que horario fin > inicio
     final inicio = _parseHora(horarioInicioController.text);
     final fin = _parseHora(horarioFinController.text);
     if (inicio != null && fin != null && fin.isBefore(inicio)) {
@@ -143,35 +203,53 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     try {
       setState(() => isLoading = true);
 
+      // 🔹 1. Obtener el usuario autenticado (UUID)
       final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) throw Exception('Usuario no autenticado');
+
+      // 🔹 2. Buscar el ID interno (INTEGER) del usuario en tu tabla "usuario"
+      final response = await Supabase.instance.client
+          .from('usuario')
+          .select('id_usuario')
+          .eq('auth_user_id', user.id)
+          .single();
+
+      final idUsuario = response['id_usuario'];
+      if (idUsuario == null) throw Exception('No se encontró el usuario en la base de datos');
+
+      // 🔹 3. Armar el mapa con los datos del trabajo
       final datosEnvio = {
         'titulo': tituloController.text.trim(),
         'descripcion': descripcionController.text.trim(),
-        'salario': salarioController.text.isEmpty ? null : double.parse(salarioController.text),
+        'salario': sinPrecio || salarioController.text.isEmpty ? null : double.parse(salarioController.text),
         'cantidad_empleados_requeridos': cantidadSeleccionada,
         'id_rubro': selectedRubro,
-        'ubicacion_id': int.tryParse(ubicacionSeleccionada!), // ✅ ahora manda id_ubicacion
+        'id_ubicacion': int.tryParse(ubicacionSeleccionada!),
         'metodo_pago': selectedMetodoPago!,
-        'urgencia': selectedUrgencia ?? 'ESTANDAR',
         'estado_publicacion': 'PUBLICADO',
         'fecha_inicio': fechasSeleccionadas.first.toIso8601String().split('T')[0],
         'fecha_fin': fechasSeleccionadas.last.toIso8601String().split('T')[0],
         'horario_inicio': horarioInicioController.text,
         'horario_fin': horarioFinController.text,
-        'empleador_id': user?.id,
+        'empleador_id': idUsuario, // ✅ ahora es INTEGER
       };
 
-      await servicio.createTrabajo(datosEnvio);
+      // 🔹 4. Insertar el trabajo
+      await trabajoService.createTrabajo(datosEnvio);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trabajo publicado con éxito'), backgroundColor: Color(0xFFC5414B)),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('La publicación laboral se creó exitosamente'), backgroundColor: Color(0xFFC5414B)),
+        );
+      }
 
       _limpiarFormulario();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al publicar: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al publicar: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -187,10 +265,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     setState(() {
       selectedRubro = null;
       selectedMetodoPago = null;
-      selectedUrgencia = null;
       cantidadSeleccionada = null;
       ubicacionSeleccionada = null;
+      direccionCompleta = null; // ✅ Limpiar dirección
       fechasSeleccionadas.clear();
+      sinPrecio = false;
     });
   }
 
@@ -209,6 +288,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFFC5414B),
+        elevation: 0,
         title: const Text('Crear Trabajo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: Form(
@@ -220,126 +300,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             children: [
               _buildHeader(),
               const SizedBox(height: 24),
-              _buildSeccion(
-                'Información básica',
-                Icons.work_outline,
-                [
-                  TextFormField(
-                    controller: tituloController,
-                    validator: _validarTitulo,
-                    decoration: _inputDecoration('Título del trabajo'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: descripcionController,
-                    validator: _validarDescripcion,
-                    maxLines: 4,
-                    decoration: _inputDecoration('Descripción detallada'),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: selectedRubro,
-                    items: rubros.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-                    onChanged: (val) => setState(() => selectedRubro = val),
-                    decoration: _inputDecoration('Categoría *'),
-                    validator: (val) => val == null ? 'Selecciona un rubro' : null,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              _buildSeccion(
-                'Fechas y horarios',
-                Icons.schedule_outlined,
-                [
-                  _buildFechasSection(),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: horarioInicioController,
-                          validator: (val) => _validarHorario(val, 'Horario inicio'),
-                          decoration: _inputDecoration('Inicio (08:30)'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: horarioFinController,
-                          validator: (val) => _validarHorario(val, 'Horario fin'),
-                          decoration: _inputDecoration('Fin (17:00)'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              _buildSeccion(
-                'Detalles del trabajo',
-                Icons.info_outline,
-                [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: salarioController,
-                          keyboardType: TextInputType.number,
-                          decoration: _inputDecoration('Precio (\$)'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      TextButton(onPressed: () => setState(() => salarioController.clear()), child: const Text('Sin precio')),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<int>(
-                    value: ubicacionSeleccionada == null ? null : int.tryParse(ubicacionSeleccionada!),
-                    items: _ubicaciones
-                        .map((u) => DropdownMenuItem<int>(
-                              value: u['id_ubicacion'],
-                              child: Text("${u['nombre']} - ${u['ciudad']}"),
-                            ))
-                        .toList(),
-                    onChanged: (val) => setState(() => ubicacionSeleccionada = val?.toString()),
-                    decoration: _inputDecoration('Ubicación *'),
-                    validator: (val) => val == null ? 'Selecciona ubicación' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<int>(
-                    value: cantidadSeleccionada,
-                    items: List.generate(5, (i) => i + 1)
-                        .map((n) => DropdownMenuItem(value: n, child: Text('$n trabajadores')))
-                        .toList(),
-                    onChanged: (val) => setState(() => cantidadSeleccionada = val),
-                    decoration: _inputDecoration('Cantidad de empleados *'),
-                    validator: (val) => val == null ? 'Selecciona cantidad' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: selectedMetodoPago,
-                          items: metodosPago.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-                          onChanged: (val) => setState(() => selectedMetodoPago = val),
-                          decoration: _inputDecoration('Método de pago *'),
-                          validator: (val) => val == null ? 'Selecciona método' : null,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: selectedUrgencia,
-                          items: nivelesUrgencia.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
-                          onChanged: (val) => setState(() => selectedUrgencia = val),
-                          decoration: _inputDecoration('Urgencia'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              _buildInformacionBasica(),
+              const SizedBox(height: 20),
+              _buildFechasYHorarios(),
+              const SizedBox(height: 20),
+              _buildDetallesTrabajo(),
               const SizedBox(height: 32),
               PrimaryButton(text: 'Publicar Trabajo', onPressed: _publicarTrabajo, isLoading: isLoading),
               const SizedBox(height: 16),
@@ -350,15 +315,16 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     );
   }
 
-  InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF012345), width: 2)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  Widget _buildFieldLabel(String label, {bool required = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: RichText(
+        text: TextSpan(
+          text: label,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2D3142)),
+          children: required ? [const TextSpan(text: ' *', style: TextStyle(color: Color(0xFFC5414B)))] : [],
+        ),
+      ),
     );
   }
 
@@ -367,7 +333,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFFC5414B), Color(0xFFE85A4F)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: const LinearGradient(colors: [Color(0xFFC5414B), Color(0xFFE85A4F)]),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: const Color(0xFFC5414B).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
       ),
@@ -382,53 +348,385 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     );
   }
 
-  Widget _buildSeccion(String titulo, IconData icono, List<Widget> children) {
+  Widget _buildInformacionBasica() {
+    return _buildCard('Información básica', Icons.work_outline, [
+      _buildFieldLabel('Título del trabajo', required: true),
+      TextFormField(controller: tituloController, validator: _validarTitulo, decoration: _inputDecoration('Ej: Mozo para evento')),
+      const SizedBox(height: 16),
+      _buildFieldLabel('Descripción del trabajo', required: true),
+      TextFormField(controller: descripcionController, validator: _validarDescripcion, maxLines: 4, decoration: _inputDecoration('Describe el trabajo, logística y capacidades requeridas')),
+      const SizedBox(height: 16),
+      _buildFieldLabel('Categoría', required: true),
+      DropdownButtonFormField<String>(
+        value: selectedRubro,
+        items: rubros.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+        onChanged: (val) => setState(() => selectedRubro = val),
+        decoration: _inputDecoration('Selecciona una categoría'),
+        validator: (val) => val == null ? 'Selecciona una categoría' : null,
+      ),
+    ]);
+  }
+
+  Widget _buildFechasYHorarios() {
+    return _buildCard('Fechas y horarios', Icons.schedule_outlined, [
+      _buildFechasSection(),
+      const SizedBox(height: 16),
+      Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFieldLabel('Horario de inicio', required: true),
+                GestureDetector(
+                  onTap: () => _seleccionarHora(horarioInicioController, abrirSiguiente: true),
+                  child: AbsorbPointer(
+                    child: TextFormField(
+                      controller: horarioInicioController,
+                      decoration: _inputDecoration('08:30').copyWith(suffixIcon: const Icon(Icons.access_time, color: Color(0xFFC5414B))),
+                      validator: (val) => val == null || val.isEmpty ? 'Requerido' : null,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFieldLabel('Horario de fin', required: true),
+                GestureDetector(
+                  onTap: () => _seleccionarHora(horarioFinController),
+                  child: AbsorbPointer(
+                    child: TextFormField(
+                      controller: horarioFinController,
+                      decoration: _inputDecoration('17:00').copyWith(suffixIcon: const Icon(Icons.access_time, color: Color(0xFFC5414B))),
+                      validator: (val) => val == null || val.isEmpty ? 'Requerido' : null,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ]);
+  }
+
+  Widget _buildDetallesTrabajo() {
+    return _buildCard('Detalles del trabajo', Icons.info_outline, [
+      _buildFieldLabel('Cantidad de empleados', required: true),
+      DropdownButtonFormField<int>(
+        value: cantidadSeleccionada,
+        items: List.generate(5, (i) => i + 1).map((n) => DropdownMenuItem(value: n, child: Text('$n'))).toList(),
+        onChanged: (val) => setState(() {
+          cantidadSeleccionada = val;
+          if (!sinPrecio) salarioController.clear();
+        }),
+        decoration: _inputDecoration('Selecciona'),
+        validator: (val) => val == null ? 'Requerido' : null,
+      ),
+      const SizedBox(height: 16),
+      _buildFieldLabel(cantidadSeleccionada == null ? 'Precio' : (cantidadSeleccionada == 1 ? 'Precio del trabajo' : 'Precio por trabajador'), required: !sinPrecio),
+      Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: salarioController,
+              enabled: cantidadSeleccionada != null && !sinPrecio,
+              keyboardType: TextInputType.number,
+              validator: _validarSalario,
+              decoration: _inputDecoration(cantidadSeleccionada == null ? 'Selecciona cantidad primero' : 'Precio en \$'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () => setState(() {
+              sinPrecio = !sinPrecio;
+              if (sinPrecio) salarioController.clear();
+            }),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: sinPrecio ? const Color(0xFFC5414B) : Colors.grey.shade300,
+              foregroundColor: sinPrecio ? Colors.white : Colors.black87,
+            ),
+            child: Text(sinPrecio ? 'Con precio' : 'Sin precio'),
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _buildFieldLabel('Ubicación', required: true),
+      _buildUbicacionDropdown(),
+      const SizedBox(height: 16),
+      _buildFieldLabel('Método de pago', required: true),
+      DropdownButtonFormField<String>(
+        value: selectedMetodoPago,
+        items: metodosPago.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+        onChanged: (val) => setState(() => selectedMetodoPago = val),
+        decoration: _inputDecoration('Selecciona'),
+        validator: (val) => val == null ? 'Requerido' : null,
+      ),
+    ]);
+  }
+
+  Widget _buildCard(String titulo, IconData icono, List<Widget> children) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [
-        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2)),
-      ]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [Icon(icono, color: const Color(0xFFC5414B)), const SizedBox(width: 8), Text(titulo, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))]),
-        const SizedBox(height: 16),
-        ...children,
-      ]),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [Icon(icono, color: const Color(0xFFC5414B), size: 24), const SizedBox(width: 10), Text(titulo, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold))]),
+          const SizedBox(height: 20),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  // ✅ NUEVO: Mostrar diálogo de selección de ubicación
+  Future<void> _mostrarDialogoUbicaciones() async {
+    await showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 500),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: [Color(0xFFC5414B), Color(0xFFE85A4F)]),
+                  borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on, color: Colors.white),
+                    const SizedBox(width: 12),
+                    const Expanded(child: Text('Seleccionar Ubicación', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context)),
+                  ],
+                ),
+              ),
+              // Lista de ubicaciones
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _ubicaciones.length,
+                  itemBuilder: (context, index) {
+                    final ubicacion = _ubicaciones[index];
+                    final isSelected = ubicacionSeleccionada == ubicacion['id_ubicacion'].toString();
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          ubicacionSeleccionada = ubicacion['id_ubicacion'].toString();
+                          direccionCompleta = '${ubicacion['calle']} ${ubicacion['numero']}, ${ubicacion['ciudad']}, ${ubicacion['provincia']}';
+                        });
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFFC5414B).withOpacity(0.1) : Colors.white,
+                          border: Border.all(color: isSelected ? const Color(0xFFC5414B) : Colors.grey.shade300, width: isSelected ? 2 : 1),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFC5414B).withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))] : null,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFFC5414B) : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(Icons.home, color: isSelected ? Colors.white : Colors.grey.shade600, size: 24),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${ubicacion['nombre']} - ${ubicacion['ciudad']}', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isSelected ? const Color(0xFFC5414B) : Colors.black)),
+                                  const SizedBox(height: 4),
+                                  Text('${ubicacion['calle']} ${ubicacion['numero']}', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                                  Text('${ubicacion['ciudad']}, ${ubicacion['provincia']}', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                                ],
+                              ),
+                            ),
+                            if (isSelected) const Icon(Icons.check_circle, color: Color(0xFFC5414B), size: 28),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // Botón agregar nueva
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _irAAgregarUbicacion();
+                  },
+                  icon: const Icon(Icons.add_location),
+                  label: const Text('Agregar nueva ubicación'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFC5414B),
+                    side: const BorderSide(color: Color(0xFFC5414B)),
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUbicacionDropdown() {
+    if (isLoadingUbicaciones) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+        child: const Row(children: [SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)), SizedBox(width: 12), Text('Cargando...')]),
+      );
+    }
+
+    if (_ubicaciones.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.orange.shade50, border: Border.all(color: Colors.orange.shade200), borderRadius: BorderRadius.circular(8)),
+            child: Row(children: [Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700), const SizedBox(width: 12), const Expanded(child: Text('No tienes ubicaciones guardadas'))]),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _irAAgregarUbicacion,
+              icon: const Icon(Icons.add_location),
+              label: const Text('Agregar ubicación'),
+              style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFC5414B), side: const BorderSide(color: Color(0xFFC5414B))),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ✅ NUEVO: Botón para abrir el diálogo
+        GestureDetector(
+          onTap: _mostrarDialogoUbicaciones,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: ubicacionSeleccionada != null ? const Color(0xFFC5414B) : Colors.grey.shade300, width: ubicacionSeleccionada != null ? 2 : 1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.location_on, color: ubicacionSeleccionada != null ? const Color(0xFFC5414B) : Colors.grey.shade400),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ubicacionSeleccionada != null
+                            ? _ubicaciones.firstWhere((u) => u['id_ubicacion'].toString() == ubicacionSeleccionada)['nombre']
+                            : 'Seleccionar ubicación',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: ubicacionSeleccionada != null ? Colors.black : Colors.grey.shade600),
+                      ),
+                      if (direccionCompleta != null) ...[
+                        const SizedBox(height: 4),
+                        Text(direccionCompleta!, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                      ],
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+              ],
+            ),
+          ),
+        ),
+        if (ubicacionSeleccionada == null)
+          Padding(
+            padding: const EdgeInsets.only(left: 16, top: 8),
+            child: Text('Este campo es requerido', style: TextStyle(color: Colors.red[700], fontSize: 12)),
+          ),
+      ],
     );
   }
 
   Widget _buildFechasSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(
-        children: [
-          const Text('Fechas del trabajo *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-          const Spacer(),
-          TextButton.icon(onPressed: _seleccionarFecha, icon: const Icon(Icons.add, size: 16), label: const Text('Agregar fecha')),
-          TextButton.icon(onPressed: _seleccionarRangoFechas, icon: const Icon(Icons.date_range, size: 16), label: const Text('Rango de días')),
-        ],
-      ),
-      const SizedBox(height: 8),
-      if (fechasSeleccionadas.isEmpty)
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
-          child: Text('Selecciona al menos una fecha', style: TextStyle(color: Colors.grey[600]), textAlign: TextAlign.center),
-        )
-      else
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: fechasSeleccionadas
-              .map((f) => Chip(
-                    label: Text('${f.day}/${f.month}/${f.year}'),
-                    deleteIcon: const Icon(Icons.close, size: 16),
-                    onDeleted: () => _eliminarFecha(f),
-                    backgroundColor: const Color(0xFFC5414B).withOpacity(0.1),
-                    deleteIconColor: const Color(0xFFC5414B),
-                  ))
-              .toList(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _buildFieldLabel('Fechas del trabajo', required: true),
+            const Spacer(),
+            TextButton.icon(onPressed: _seleccionarFecha, icon: const Icon(Icons.add, size: 16), label: const Text('Agregar'), style: TextButton.styleFrom(foregroundColor: const Color(0xFFC5414B))),
+            TextButton.icon(onPressed: _seleccionarRangoFechas, icon: const Icon(Icons.date_range, size: 16), label: const Text('Rango'), style: TextButton.styleFrom(foregroundColor: const Color(0xFFC5414B))),
+          ],
         ),
-    ]);
+        const SizedBox(height: 8),
+        if (fechasSeleccionadas.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
+            child: Text('Debe seleccionar al menos una fecha', style: TextStyle(color: Colors.grey[600]), textAlign: TextAlign.center),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: fechasSeleccionadas
+                .map((f) => Chip(
+                      label: Text('${f.day}/${f.month}/${f.year}'),
+                      deleteIcon: const Icon(Icons.close, size: 16),
+                      onDeleted: () => _eliminarFecha(f),
+                      backgroundColor: const Color(0xFFC5414B).withOpacity(0.1),
+                      deleteIconColor: const Color(0xFFC5414B),
+                    ))
+                .toList(),
+          ),
+      ],
+    );
+  }
+
+  InputDecoration _inputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF012345), width: 2)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
+      disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade200)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    );
   }
 }

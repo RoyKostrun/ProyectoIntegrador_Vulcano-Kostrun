@@ -1,7 +1,11 @@
+//lib/screens/jobs/create_trabajo_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/trabajo_service.dart';
+import '../../services/rubro_service.dart';
 import '../../services/ubicacion_service.dart';
+import '../../services/auth_service.dart';
 import '../../components/primary_button.dart';
 
 class CrearTrabajoScreen extends StatefulWidget {
@@ -24,12 +28,14 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   bool isLoading = false;
   bool isLoadingUbicaciones = true;
+  bool isLoadingRubros = true;
   bool sinPrecio = false;
   String? selectedRubro;
   String? selectedMetodoPago;
+  String? periodoPagoSeleccionado; // ✅ NUEVO: POR_HORA, POR_DIA, POR_TRABAJO
   int? cantidadSeleccionada;
   String? ubicacionSeleccionada;
-  String? direccionCompleta; // ✅ NUEVO: Para mostrar dirección
+  String? direccionCompleta;
   List<String> rubros = [];
   List<Map<String, dynamic>> _ubicaciones = [];
   List<DateTime> fechasSeleccionadas = [];
@@ -54,8 +60,24 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   }
 
   Future<void> _cargarRubros() async {
-    final result = await trabajoService.getRubros();
-    setState(() => rubros = [...result, 'Otros']);
+    setState(() => isLoadingRubros = true);
+    try {
+      final result = await RubroService.getRubros();
+      setState(() {
+        rubros = [
+          ...result.map((r) => r.nombre),
+          'Otros'
+        ];
+        isLoadingRubros = false;
+      });
+    } catch (e) {
+      setState(() => isLoadingRubros = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar rubros: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Future<void> _cargarUbicaciones() async {
@@ -74,6 +96,16 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         );
       }
     }
+  }
+
+  // ✅ NUEVO: Determinar si es rango de días o día único
+  bool get esRangoDias => fechasSeleccionadas.length > 1;
+
+  // ✅ NUEVO: Limpiar periodo de pago cuando cambian las fechas
+  void _onFechasChanged() {
+    setState(() {
+      periodoPagoSeleccionado = null;
+    });
   }
 
   String? _validarTitulo(String? value) {
@@ -120,7 +152,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         controller.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
       });
       
-      // ✅ Abrir automáticamente el selector de hora de fin
       if (abrirSiguiente) {
         Future.delayed(const Duration(milliseconds: 300), () {
           _seleccionarHora(horarioFinController);
@@ -138,8 +169,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       locale: const Locale('es', 'ES'),
     );
     if (picked != null) {
-      // ✅ Si selecciona una sola fecha, reemplaza cualquier selección anterior
-      setState(() => fechasSeleccionadas = [picked]);
+      setState(() {
+        fechasSeleccionadas = [picked];
+        _onFechasChanged();
+      });
     }
   }
 
@@ -157,19 +190,42 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         rango.add(current);
         current = current.add(const Duration(days: 1));
       }
-      setState(() => fechasSeleccionadas = rango);
+      setState(() {
+        fechasSeleccionadas = rango;
+        _onFechasChanged();
+      });
     }
   }
 
   void _eliminarFecha(DateTime fecha) {
-    setState(() => fechasSeleccionadas.remove(fecha));
+    setState(() {
+      fechasSeleccionadas.remove(fecha);
+      if (fechasSeleccionadas.isEmpty || fechasSeleccionadas.length == 1) {
+        _onFechasChanged();
+      }
+    });
   }
 
   void _irAAgregarUbicacion() {
     Navigator.pushNamed(context, '/agregar-ubicacion').then((_) => _cargarUbicaciones());
   }
 
-    Future<void> _publicarTrabajo() async {
+  // ✅ Método helper para obtener el ID del rubro por nombre
+  Future<int?> _getIdRubroByName(String nombre) async {
+    try {
+      final rubros = await RubroService.getRubros();
+      final rubro = rubros.firstWhere(
+        (r) => r.nombre == nombre,
+        orElse: () => throw Exception('Rubro no encontrado'),
+      );
+      return rubro.idRubro;
+    } catch (e) {
+      print('❌ Error obteniendo ID del rubro: $e');
+      return null;
+    }
+  }
+
+  Future<void> _publicarTrabajo() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Completa todos los campos obligatorios'), backgroundColor: Colors.red),
@@ -180,6 +236,14 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     if (fechasSeleccionadas.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Debe seleccionar al menos una fecha para el trabajo'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    // ✅ VALIDAR PERÍODO DE PAGO
+    if (periodoPagoSeleccionado == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debe seleccionar el período de pago'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -203,55 +267,65 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     try {
       setState(() => isLoading = true);
 
-      // 🔹 1. Obtener el usuario autenticado (UUID)
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) throw Exception('Usuario no autenticado');
+      final userData = await AuthService.getCurrentUserData();
+      if (userData == null) {
+        throw Exception('Usuario no autenticado');
+      }
 
-      // 🔹 2. Buscar el ID interno (INTEGER) del usuario en tu tabla "usuario"
-      final response = await Supabase.instance.client
-          .from('usuario')
-          .select('id_usuario')
-          .eq('auth_user_id', user.id)
-          .single();
+      final idUsuario = userData.idUsuario;
+      print('📝 Creando trabajo para usuario ID: $idUsuario');
 
-      final idUsuario = response['id_usuario'];
-      if (idUsuario == null) throw Exception('No se encontró el usuario en la base de datos');
+      final idRubro = await _getIdRubroByName(selectedRubro!);
+      if (idRubro == null) {
+        throw Exception('No se encontró el rubro seleccionado');
+      }
 
-      // 🔹 3. Armar el mapa con los datos del trabajo
       final datosEnvio = {
         'titulo': tituloController.text.trim(),
         'descripcion': descripcionController.text.trim(),
-        'salario': sinPrecio || salarioController.text.isEmpty ? null : double.parse(salarioController.text),
+        'salario': sinPrecio || salarioController.text.isEmpty 
+            ? 0.0 
+            : double.parse(salarioController.text),
         'cantidad_empleados_requeridos': cantidadSeleccionada,
-        'id_rubro': selectedRubro,
-        'id_ubicacion': int.tryParse(ubicacionSeleccionada!),
+        'id_rubro': idRubro,
+        'ubicacion_id': int.parse(ubicacionSeleccionada!),
         'metodo_pago': selectedMetodoPago!,
+        'periodo_pago': periodoPagoSeleccionado!, // ✅ NUEVO: POR_HORA, POR_DIA, POR_TRABAJO
         'estado_publicacion': 'PUBLICADO',
+        'urgencia': 'ESTANDAR',
         'fecha_inicio': fechasSeleccionadas.first.toIso8601String().split('T')[0],
         'fecha_fin': fechasSeleccionadas.last.toIso8601String().split('T')[0],
         'horario_inicio': horarioInicioController.text,
         'horario_fin': horarioFinController.text,
-        'empleador_id': idUsuario, // ✅ ahora es INTEGER
+        'empleador_id': idUsuario,
       };
 
-      // 🔹 4. Insertar el trabajo
       await trabajoService.createTrabajo(datosEnvio);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('La publicación laboral se creó exitosamente'), backgroundColor: Color(0xFFC5414B)),
+          const SnackBar(
+            content: Text('La publicación laboral se creó exitosamente'),
+            backgroundColor: Color(0xFFC5414B)
+          ),
         );
+        Navigator.pop(context, true);
       }
 
       _limpiarFormulario();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al publicar: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error al publicar: $e'), 
+            backgroundColor: Colors.red
+          ),
         );
       }
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
@@ -265,9 +339,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     setState(() {
       selectedRubro = null;
       selectedMetodoPago = null;
+      periodoPagoSeleccionado = null;
       cantidadSeleccionada = null;
       ubicacionSeleccionada = null;
-      direccionCompleta = null; // ✅ Limpiar dirección
+      direccionCompleta = null;
       fechasSeleccionadas.clear();
       sinPrecio = false;
     });
@@ -284,6 +359,18 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (isLoadingRubros || isLoadingUbicaciones) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFC5414B),
+          elevation: 0,
+          title: const Text('Crear Trabajo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
@@ -416,59 +503,237 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   }
 
   Widget _buildDetallesTrabajo() {
-    return _buildCard('Detalles del trabajo', Icons.info_outline, [
-      _buildFieldLabel('Cantidad de empleados', required: true),
-      DropdownButtonFormField<int>(
-        value: cantidadSeleccionada,
-        items: List.generate(5, (i) => i + 1).map((n) => DropdownMenuItem(value: n, child: Text('$n'))).toList(),
-        onChanged: (val) => setState(() {
-          cantidadSeleccionada = val;
-          if (!sinPrecio) salarioController.clear();
-        }),
-        decoration: _inputDecoration('Selecciona'),
-        validator: (val) => val == null ? 'Requerido' : null,
-      ),
-      const SizedBox(height: 16),
-      _buildFieldLabel(cantidadSeleccionada == null ? 'Precio' : (cantidadSeleccionada == 1 ? 'Precio del trabajo' : 'Precio por trabajador'), required: !sinPrecio),
-      Row(
-        children: [
-          Expanded(
-            child: TextFormField(
-              controller: salarioController,
-              enabled: cantidadSeleccionada != null && !sinPrecio,
-              keyboardType: TextInputType.number,
-              validator: _validarSalario,
-              decoration: _inputDecoration(cantidadSeleccionada == null ? 'Selecciona cantidad primero' : 'Precio en \$'),
+  return _buildCard('Detalles del trabajo', Icons.info_outline, [
+    // 1️⃣ PRIMERO: Cantidad de empleados
+    _buildFieldLabel('Cantidad de empleados', required: true),
+    DropdownButtonFormField<int>(
+      value: cantidadSeleccionada,
+      items: List.generate(5, (i) => i + 1).map((n) => DropdownMenuItem(value: n, child: Text('$n'))).toList(),
+      onChanged: (val) => setState(() {
+        cantidadSeleccionada = val;
+        if (!sinPrecio) salarioController.clear();
+      }),
+      decoration: _inputDecoration('Selecciona'),
+      validator: (val) => val == null ? 'Requerido' : null,
+    ),
+    const SizedBox(height: 16),
+    
+    // 2️⃣ SEGUNDO: Precio
+    _buildFieldLabel(
+      cantidadSeleccionada == null 
+          ? 'Precio' 
+          : (cantidadSeleccionada == 1 ? 'Precio del trabajo' : 'Precio por trabajador'), 
+      required: !sinPrecio
+    ),
+    Row(
+      children: [
+        Expanded(
+          child: TextFormField(
+            controller: salarioController,
+            enabled: cantidadSeleccionada != null && !sinPrecio,
+            keyboardType: TextInputType.number,
+            validator: _validarSalario,
+            decoration: _inputDecoration(
+              cantidadSeleccionada == null 
+                  ? 'Selecciona cantidad primero' 
+                  : (periodoPagoSeleccionado == null 
+                      ? 'Selecciona período abajo'
+                      : _getSalarioHint())
             ),
           ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () => setState(() {
-              sinPrecio = !sinPrecio;
-              if (sinPrecio) salarioController.clear();
-            }),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: sinPrecio ? const Color(0xFFC5414B) : Colors.grey.shade300,
-              foregroundColor: sinPrecio ? Colors.white : Colors.black87,
-            ),
-            child: Text(sinPrecio ? 'Con precio' : 'Sin precio'),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton(
+          onPressed: () => setState(() {
+            sinPrecio = !sinPrecio;
+            if (sinPrecio) salarioController.clear();
+          }),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: sinPrecio ? const Color(0xFFC5414B) : Colors.grey.shade300,
+            foregroundColor: sinPrecio ? Colors.white : Colors.black87,
           ),
-        ],
-      ),
+          child: Text(sinPrecio ? 'Con precio' : 'Sin precio'),
+        ),
+      ],
+    ),
+    const SizedBox(height: 16),
+    
+    // 3️⃣ TERCERO: Período de pago (solo si hay fechas seleccionadas)
+    if (fechasSeleccionadas.isNotEmpty) ...[
+      _buildFieldLabel('Período de pago', required: true),
+      _buildPeriodoPagoSelector(),
       const SizedBox(height: 16),
-      _buildFieldLabel('Ubicación', required: true),
-      _buildUbicacionDropdown(),
-      const SizedBox(height: 16),
-      _buildFieldLabel('Método de pago', required: true),
-      DropdownButtonFormField<String>(
-        value: selectedMetodoPago,
-        items: metodosPago.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-        onChanged: (val) => setState(() => selectedMetodoPago = val),
-        decoration: _inputDecoration('Selecciona'),
-        validator: (val) => val == null ? 'Requerido' : null,
-      ),
-    ]);
+    ],
+    
+    // 4️⃣ Ubicación
+    _buildFieldLabel('Ubicación', required: true),
+    _buildUbicacionDropdown(),
+    const SizedBox(height: 16),
+    
+    // 5️⃣ Método de pago
+    _buildFieldLabel('Método de pago', required: true),
+    DropdownButtonFormField<String>(
+      value: selectedMetodoPago,
+      items: metodosPago.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+      onChanged: (val) => setState(() => selectedMetodoPago = val),
+      decoration: _inputDecoration('Selecciona'),
+      validator: (val) => val == null ? 'Requerido' : null,
+    ),
+  ]);
+}
+
+  // ✅ NUEVO: Widget para seleccionar período de pago
+  Widget _buildPeriodoPagoSelector() {
+  if (esRangoDias) {
+    // Rango de días: POR_HORA o POR_DIA
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Has seleccionado ${fechasSeleccionadas.length} días de trabajo',
+                  style: TextStyle(fontSize: 13, color: Colors.blue.shade900),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildPeriodoButton(
+                'Por Hora',
+                'POR_HORA', // ✅ Correcto
+                Icons.access_time,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildPeriodoButton(
+                'Por Día',
+                'POR_DIA', // ✅ Correcto
+                Icons.calendar_today,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  } else {
+    // Un solo día: POR_HORA o POR_TRABAJO (jornada completa)
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.green.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.green.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.green.shade700, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Trabajo de un solo día',
+                  style: TextStyle(fontSize: 13, color: Colors.green.shade900),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildPeriodoButton(
+                'Por Hora',
+                'POR_HORA', // ✅ Correcto
+                Icons.access_time,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildPeriodoButton(
+                'Trabajo Completo',
+                'POR_TRABAJO', // ✅ CORREGIDO: antes decía POR_TRABAJO
+                Icons.wb_sunny,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
+}
+ 
+  Widget _buildPeriodoButton(String label, String value, IconData icon) {
+    final isSelected = periodoPagoSeleccionado == value;
+    return GestureDetector(
+      onTap: () => setState(() => periodoPagoSeleccionado = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFC5414B) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFC5414B) : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [BoxShadow(color: const Color(0xFFC5414B).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))]
+              : [],
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : const Color(0xFFC5414B),
+              size: 28,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.white : const Color(0xFF2D3142),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getSalarioHint() {
+  if (periodoPagoSeleccionado == null) {
+    return 'Selecciona período primero';
+  }
+  switch (periodoPagoSeleccionado) {
+    case 'POR_HORA':
+      return 'Precio por hora en \$';
+    case 'POR_DIA':
+      return 'Precio por día en \$';
+    case 'POR_TRABAJO': // ✅ CORREGIDO
+      return 'Precio por trabajo completo en \$';
+    default:
+      return 'Precio en \$';
+  }
+}
 
   Widget _buildCard(String titulo, IconData icono, List<Widget> children) {
     return Container(
@@ -490,7 +755,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     );
   }
 
-  // ✅ NUEVO: Mostrar diálogo de selección de ubicación
   Future<void> _mostrarDialogoUbicaciones() async {
     await showDialog(
       context: context,
@@ -501,7 +765,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(
@@ -517,7 +780,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                   ],
                 ),
               ),
-              // Lista de ubicaciones
               Flexible(
                 child: ListView.builder(
                   shrinkWrap: true,
@@ -573,7 +835,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                   },
                 ),
               ),
-              // Botón agregar nueva
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: OutlinedButton.icon(
@@ -632,7 +893,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ✅ NUEVO: Botón para abrir el diálogo
         GestureDetector(
           onTap: _mostrarDialogoUbicaciones,
           child: Container(

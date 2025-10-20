@@ -1,8 +1,8 @@
-//// lib/models/rubro.dart
+// lib/models/rubro_model.dart
 import 'dart:math';
 
 class Rubro {
-  final int id;
+  final int idRubro; // ✅ Cambiado de 'id' a 'idRubro'
   final String nombre;
   final String descripcion;
   final String iconName;
@@ -10,7 +10,7 @@ class Rubro {
   final Map<String, double> position;
 
   Rubro({
-    required this.id,
+    required this.idRubro, // ✅ Cambiado
     required this.nombre,
     required this.descripcion,
     required this.iconName,
@@ -20,10 +20,9 @@ class Rubro {
 
   factory Rubro.fromMap(Map<String, dynamic> map) {
     return Rubro(
-      id: map['id_rubro'],
+      idRubro: map['id_rubro'], // ✅ Mapea a idRubro
       nombre: map['nombre'],
-      descripcion: map['descripcion'],
-      // Como tu tabla Supabase solo tiene nombre y descripción, generamos el resto
+      descripcion: map['descripcion'] ?? '',
       iconName: _getDefaultIcon(map['nombre']),
       size: _getRandomSize(),
       position: _generateRandomPosition(),
@@ -32,10 +31,9 @@ class Rubro {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      'id_rubro': idRubro, // ✅ Usa el nombre correcto de la columna
       'nombre': nombre,
       'descripcion': descripcion,
-      // Solo los campos que existen en tu tabla Supabase
     };
   }
 
@@ -77,13 +75,13 @@ class Rubro {
   static Map<String, double> _generateRandomPosition() {
     final random = Random();
     return {
-      'x': (random.nextInt(70) + 15) / 100.0, // Entre 0.15 y 0.85
-      'y': (random.nextInt(60) + 20) / 100.0, // Entre 0.20 y 0.80
+      'x': (random.nextInt(70) + 15) / 100.0,
+      'y': (random.nextInt(60) + 20) / 100.0,
     };
   }
 
   @override
   String toString() {
-    return 'Rubro{id: $id, nombre: $nombre, descripcion: $descripcion}';
+    return 'Rubro{idRubro: $idRubro, nombre: $nombre, descripcion: $descripcion}';
   }
 }

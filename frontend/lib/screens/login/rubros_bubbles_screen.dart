@@ -1,6 +1,6 @@
 //lib/screens/login/rubros_bubbles_screen.dart
 import 'package:flutter/material.dart';
-import '../../models/rubro.dart';
+import '../../models/rubro_model.dart';
 import '../../services/rubro_service.dart';
 import '../../services/auth_service.dart'; // 👈 Agregar import
 import '../../utils/icon_helper.dart';
@@ -89,7 +89,7 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
     try {
       // Obtener los nombres de los rubros seleccionados
       final nombresSeleccionados = rubros
-          .where((r) => selectedRubros.contains(r.id))
+          .where((r) => selectedRubros.contains(r.idRubro))
           .map((r) => r.nombre)
           .toList();
 
@@ -113,7 +113,7 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
         // ✅ NAVEGAR A LA PANTALLA DE INICIO
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/inicio', // 👈 Navegar a la pantalla INICIO
+          '/main-nav',
           (route) => false, // Eliminar todas las rutas previas
         );
       }
@@ -397,8 +397,8 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
         itemCount: rubros.length,
         itemBuilder: (context, index) {
           final rubro = rubros[index];
-          final isSelected = selectedRubros.contains(rubro.id);
-          final isHovered = hoveredRubros.contains(rubro.id);
+          final isSelected = selectedRubros.contains(rubro.idRubro);
+          final isHovered = hoveredRubros.contains(rubro.idRubro);
 
           return _buildBubble(rubro, isSelected, isHovered);
         },
@@ -408,10 +408,10 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
 
   Widget _buildBubble(Rubro rubro, bool isSelected, bool isHovered) {
     return MouseRegion(
-      onEnter: (_) => _handleBubbleHover(rubro.id, true),
-      onExit: (_) => _handleBubbleHover(rubro.id, false),
+      onEnter: (_) => _handleBubbleHover(rubro.idRubro, true),
+      onExit: (_) => _handleBubbleHover(rubro.idRubro, false),
       child: GestureDetector(
-        onTap: () => _handleBubbleTap(rubro.id),
+        onTap: () => _handleBubbleTap(rubro.idRubro),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(

@@ -1,7 +1,7 @@
 // lib/screens/login/inicio_screen.dart
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
-import '../../models/user.dart' as AppUser;
+import '../../models/user_model.dart' as AppUser;
 import '../../components/app_logo.dart';
 import '../../components/primary_button.dart';
 import '../user/trabajos_screen.dart';
@@ -171,7 +171,7 @@ class _InicioScreenState extends State<InicioScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _buildInfoRow('Rol', currentUser!.persona!.rol),
+          _buildInfoRow('Rol', currentUser!.persona!.rolDisplay), 
           _buildInfoRow('DNI', currentUser!.persona!.dni),
           _buildInfoRow('Username', currentUser!.persona!.username),
           _buildInfoRow('Nombre Completo', '${currentUser!.persona!.nombre} ${currentUser!.persona!.apellido}'),

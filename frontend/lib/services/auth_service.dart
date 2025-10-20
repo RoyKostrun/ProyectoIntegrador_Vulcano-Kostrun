@@ -1,6 +1,6 @@
 // lib/services/auth_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/user.dart' as AppUser;
+import '../models/user_model.dart' as AppUser;
 import 'supabase_client.dart';
 
 class AuthService {
@@ -94,7 +94,7 @@ class AuthService {
     return supabase.auth.onAuthStateChange;
   }
 
-  // ✅ Obtener datos completos del usuario desde la BD - CORREGIDO
+  // Obtener datos completos del usuario desde la BD
   static Future<AppUser.User?> getCurrentUserData() async {
     try {
       final authUser = supabase.auth.currentUser;
@@ -133,7 +133,7 @@ class AuthService {
         return null;
       }
 
-      // ✅ TRANSFORMAR LISTAS EN OBJETOS ÚNICOS
+      // TRANSFORMAR LISTAS EN OBJETOS ÚNICOS
       final transformedResponse = Map<String, dynamic>.from(response);
       
       // Convertir usuario_persona de lista a objeto único (si existe)
@@ -162,6 +162,22 @@ class AuthService {
       return null;
     }
   }
+
+  static Future<int> getCurrentUserId() async {
+  try {
+    final userData = await getCurrentUserData();
+    
+    if (userData == null) {
+      throw Exception('Usuario no autenticado. Por favor inicia sesión.');
+    }
+    
+    return userData.idUsuario;
+    
+  } catch (e) {
+    print('❌ Error obteniendo ID usuario: $e');
+    rethrow;
+  }
+}
 
   // Actualizar perfil
   static Future<void> updateProfile({
@@ -293,13 +309,15 @@ class AuthService {
           'username': profileData['username'],
           'fecha_nacimiento': profileData['fechaNacimiento'],
           'genero': profileData['genero'],
-          'rol': profileData['rol'],
           'contacto_emergencia': profileData['contactoEmergencia'],
+          'es_empleador': false,
+          'es_empleado': false,
         };
 
         print('📦 Insertando en usuario_persona: $personaData');
         await supabase.from('usuario_persona').insert(personaData);
         print('✅ Insertado en usuario_persona');
+        
       } else if (tipoUsuario == 'EMPRESA') {
         final empresaData = {
           'id_usuario': userId,
@@ -307,6 +325,7 @@ class AuthService {
           'razon_social': profileData['razonSocial'],
           'cuit': profileData['cuit'],
           'representante_legal': profileData['representanteLegal'],
+          'es_empleador': false,
         };
 
         print('📦 Insertando en usuario_empresa: $empresaData');
@@ -332,7 +351,7 @@ class AuthService {
     }
   }
 
-  // ✅ Crear ubicación del usuario
+  // Crear ubicación del usuario
   static Future<Map<String, dynamic>> createUserLocation(Map<String, dynamic> ubicacionData) async {
     try {
       final authUser = supabase.auth.currentUser;
@@ -432,15 +451,21 @@ class AuthService {
     }
   }
 
-  /// Actualizar rol del usuario
-  static Future<void> updateUserRole(String role) async {
+  // ========================================
+  // MÉTODOS DE ROLES (BOOLEANOS)
+  // ========================================
+
+  /// Actualizar roles del usuario (para PERSONA y EMPRESA)
+  static Future<void> updateUserRoles({
+    required bool esEmpleador,
+    required bool esEmpleado,
+  }) async {
     try {
       final user = supabase.auth.currentUser;
       if (user == null) throw 'Usuario no autenticado';
 
-      print('📋 Actualizando rol a: $role');
+      print('📋 Actualizando roles: empleador=$esEmpleador, empleado=$esEmpleado');
 
-      // Obtener datos del usuario
       final userResponse = await supabase
           .from('usuario')
           .select('id_usuario, tipo_usuario')
@@ -452,27 +477,121 @@ class AuthService {
 
       print('📋 Usuario ID: $idUsuario, Tipo: $tipoUsuario');
 
-      // Actualizar según el tipo de usuario
       if (tipoUsuario == 'PERSONA') {
         await supabase
             .from('usuario_persona')
-            .update({'rol': role})
+            .update({
+              'es_empleador': esEmpleador,
+              'es_empleado': esEmpleado,
+            })
             .eq('id_usuario', idUsuario);
             
-        print('✅ Rol actualizado en usuario_persona');
+        print('✅ Roles actualizados en usuario_persona');
+        
       } else if (tipoUsuario == 'EMPRESA') {
+        // Para empresas, solo actualizamos es_empleador
         await supabase
             .from('usuario_empresa')
-            .update({'rol': role})
+            .update({'es_empleador': esEmpleador})
             .eq('id_usuario', idUsuario);
             
-        print('✅ Rol actualizado en usuario_empresa');
+        print('✅ es_empleador actualizado en usuario_empresa');
       }
           
-      print('✅ Rol de usuario actualizado a: $role');
+      print('✅ Roles actualizados correctamente');
     } catch (e) {
-      print('❌ Error actualizando rol: $e');
-      throw 'Error al actualizar rol: $e';
+      print('❌ Error actualizando roles: $e');
+      throw 'Error al actualizar roles: $e';
+    }
+  }
+
+  /// Verificar si puede publicar trabajos
+  static Future<bool> puedePublicarTrabajos() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return false;
+
+      final userResponse = await supabase
+          .from('usuario')
+          .select('id_usuario, tipo_usuario')
+          .eq('email', user.email!)
+          .single();
+
+      final tipoUsuario = userResponse['tipo_usuario'];
+      final idUsuario = userResponse['id_usuario'];
+
+      if (tipoUsuario == 'EMPRESA') {
+        final empresaResponse = await supabase
+            .from('usuario_empresa')
+            .select('es_empleador')
+            .eq('id_usuario', idUsuario)
+            .single();
+
+        return empresaResponse['es_empleador'] == true;
+        
+      } else if (tipoUsuario == 'PERSONA') {
+        final personaResponse = await supabase
+            .from('usuario_persona')
+            .select('es_empleador')
+            .eq('id_usuario', idUsuario)
+            .single();
+
+        return personaResponse['es_empleador'] == true;
+      }
+
+      return false;
+    } catch (e) {
+      print('❌ Error verificando permiso de publicación: $e');
+      return false;
+    }
+  }
+
+  /// Obtener información del empleador
+  static Future<Map<String, dynamic>?> getEmpleadorInfo() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return null;
+
+      final userResponse = await supabase
+          .from('usuario')
+          .select('id_usuario, tipo_usuario')
+          .eq('email', user.email!)
+          .single();
+
+      final tipoUsuario = userResponse['tipo_usuario'];
+      final idUsuario = userResponse['id_usuario'];
+
+      if (tipoUsuario == 'EMPRESA') {
+        final empresaResponse = await supabase
+            .from('usuario_empresa')
+            .select('id_empresa, es_empleador')
+            .eq('id_usuario', idUsuario)
+            .single();
+
+        return {
+          'tipo': 'EMPRESA',
+          'id_empleador': empresaResponse['id_empresa'],
+          'puede_publicar': empresaResponse['es_empleador'] == true,
+        };
+        
+      } else if (tipoUsuario == 'PERSONA') {
+        final personaResponse = await supabase
+            .from('usuario_persona')
+            .select('id_persona, es_empleador')
+            .eq('id_usuario', idUsuario)
+            .single();
+
+        return {
+          'tipo': 'PERSONA',
+          'id_empleador': personaResponse['id_persona'],
+          'puede_publicar': personaResponse['es_empleador'] == true,
+        };
+      }
+
+      return null;
+    } catch (e) {
+      print('❌ Error obteniendo info del empleador: $e');
+      return null;
     }
   }
 

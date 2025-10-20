@@ -1,4 +1,166 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'auth_service.dart';
+
+class UbicacionService {
+  final _supabase = Supabase.instance.client;
+
+  /// Obtener todas las ubicaciones del usuario actual
+  Future<List<Map<String, dynamic>>> getUbicacionesDelUsuario() async {
+    try {
+      final userData = await AuthService.getCurrentUserData();
+      if (userData == null) throw 'Usuario no autenticado';
+
+      final idUsuario = userData.idUsuario;
+
+      final response = await _supabase
+          .from('ubicacion')
+          .select('id_ubicacion, nombre, calle, numero, barrio, ciudad, provincia, codigo_postal, es_principal')
+          .eq('id_usuario', idUsuario)
+          .order('es_principal', ascending: false)
+          .order('nombre', ascending: true);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e, stack) {
+      print('❌ Error obteniendo ubicaciones: $e');
+      print(stack);
+      rethrow;
+    }
+  }
+
+  /// Crear nueva ubicación
+  Future<Map<String, dynamic>> crearUbicacion(Map<String, dynamic> datos) async {
+    try {
+      final userData = await AuthService.getCurrentUserData();
+      if (userData == null) throw 'Usuario no autenticado';
+
+      final idUsuario = userData.idUsuario;
+
+      datos['id_usuario'] = idUsuario;
+      datos['created_at'] = DateTime.now().toIso8601String();
+      datos['updated_at'] = DateTime.now().toIso8601String();
+
+      // Si es principal, desmarcar las demás
+      if (datos['es_principal'] == true) {
+        await _supabase
+            .from('ubicacion')
+            .update({'es_principal': false})
+            .eq('id_usuario', idUsuario);
+      }
+
+      final response = await _supabase
+          .from('ubicacion')
+          .insert(datos)
+          .select()
+          .single();
+
+      return response;
+    } catch (e) {
+      print('❌ Error creando ubicación: $e');
+      rethrow;
+    }
+  }
+
+  /// Obtener una ubicación por ID
+  Future<Map<String, dynamic>?> getUbicacionPorId(int idUbicacion) async {
+    try {
+      final response = await _supabase
+          .from('ubicacion')
+          .select()
+          .eq('id_ubicacion', idUbicacion)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      print('❌ Error obteniendo ubicación por ID: $e');
+      return null;
+    }
+  }
+
+  /// Obtener ubicación principal del usuario
+  Future<Map<String, dynamic>?> getUbicacionPrincipal() async {
+    try {
+      final userData = await AuthService.getCurrentUserData();
+      if (userData == null) return null;
+
+      final idUsuario = userData.idUsuario;
+
+      final response = await _supabase
+          .from('ubicacion')
+          .select()
+          .eq('id_usuario', idUsuario)
+          .eq('es_principal', true)
+          .maybeSingle();
+
+      return response;
+    } catch (e) {
+      print('❌ Error obteniendo ubicación principal: $e');
+      return null;
+    }
+  }
+
+  /// Actualizar una ubicación existente
+  Future<void> actualizarUbicacion(int idUbicacion, Map<String, dynamic> datos) async {
+    try {
+      datos['updated_at'] = DateTime.now().toIso8601String();
+      await _supabase
+          .from('ubicacion')
+          .update(datos)
+          .eq('id_ubicacion', idUbicacion);
+    } catch (e) {
+      print('❌ Error actualizando ubicación: $e');
+      rethrow;
+    }
+  }
+
+  /// Marcar ubicación como principal
+  Future<void> marcarComoPrincipal(int idUbicacion) async {
+    try {
+      final userData = await AuthService.getCurrentUserData();
+      if (userData == null) throw 'Usuario no autenticado';
+
+      final idUsuario = userData.idUsuario;
+
+      await _supabase
+          .from('ubicacion')
+          .update({'es_principal': false})
+          .eq('id_usuario', idUsuario);
+
+      await _supabase
+          .from('ubicacion')
+          .update({
+            'es_principal': true,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id_ubicacion', idUbicacion);
+    } catch (e) {
+      print('❌ Error marcando ubicación principal: $e');
+      rethrow;
+    }
+  }
+
+  /// Eliminar ubicación
+  Future<void> eliminarUbicacion(int idUbicacion) async {
+    try {
+      await _supabase.from('ubicacion').delete().eq('id_ubicacion', idUbicacion);
+    } catch (e) {
+      print('❌ Error eliminando ubicación: $e');
+      rethrow;
+    }
+  }
+
+  /// Verificar si el usuario tiene ubicaciones
+  Future<bool> tieneUbicaciones() async {
+    try {
+      final ubicaciones = await getUbicacionesDelUsuario();
+      return ubicaciones.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+
+/*
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UbicacionService {
   final _supabase = Supabase.instance.client;
@@ -203,3 +365,4 @@ class UbicacionService {
     }
   }
 }
+*/

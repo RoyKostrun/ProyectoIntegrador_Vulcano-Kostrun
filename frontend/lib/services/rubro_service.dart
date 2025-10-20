@@ -1,6 +1,7 @@
 // lib/services/rubro_service.dart
-import '../models/rubro.dart';
+import '../models/rubro_model.dart';
 import 'supabase_client.dart'; // Tu archivo existente
+import 'auth_service.dart';
 
 class RubroService {
   
@@ -165,6 +166,40 @@ class RubroService {
       return response != null;
     } catch (e) {
       return false;
+    }
+  }
+
+    static Future<void> saveUserRubros(List<String> nombresRubros) async {
+    try {
+      final userData = await AuthService.getCurrentUserData();
+      if (userData == null) throw 'Usuario no autenticado';
+
+      final idUsuario = userData.idUsuario;
+
+      // Obtener IDs de los rubros seleccionados
+      final response = await supabase
+          .from('rubro')
+          .select('id_rubro, nombre')
+          .inFilter('nombre', nombresRubros);
+
+      final rubrosSeleccionados = List<Map<String, dynamic>>.from(response);
+
+      // Eliminar relaciones previas
+      await supabase.from('usuario_rubro').delete().eq('id_usuario', idUsuario);
+
+      // Insertar nuevas relaciones
+      final inserts = rubrosSeleccionados
+          .map((r) => {'id_usuario': idUsuario, 'id_rubro': r['id_rubro']})
+          .toList();
+
+      if (inserts.isNotEmpty) {
+        await supabase.from('usuario_rubro').insert(inserts);
+      }
+
+      print('✅ Rubros actualizados para usuario ID: $idUsuario');
+    } catch (e) {
+      print('❌ Error al guardar rubros del usuario: $e');
+      rethrow;
     }
   }
 }

@@ -232,7 +232,6 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
           'cuit': _cuitController.text.trim(),
           'representanteLegal': _representanteController.text.trim(),
           'telefono': _telefonoController.text.trim(),
-          'contrasena': _passwordController.text,
         };
 
         await AuthService.createUserProfile(

@@ -1,4 +1,4 @@
-// lib/screens/register_personal_screen.dart
+// lib/screens/login/register_personal_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Para input formatters
 import '../../components/section_container.dart';
@@ -7,6 +7,8 @@ import '../../components/primary_button.dart';
 import '../../services/auth_service.dart';
 import '../../utils/validators.dart';
 import '../../utils/provinces_cities.dart';
+import '../../services/ubicacion_service.dart';
+
 
 class RegisterPersonalScreen extends StatefulWidget {
   const RegisterPersonalScreen({Key? key}) : super(key: key);
@@ -239,9 +241,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
           'telefono': _telefonoController.text.trim(),
           'contactoEmergencia': _contactoEmergenciaController.text.trim(),
           'fechaNacimiento': _fechaNacimientoController.text,
-          'genero': _generoController.text, // ✅ CORREGIDO: Usar género seleccionado
-          'rol': 'EMPLEADO', // Valor por defecto
-          'contrasena': _passwordController.text,
+          'genero': _generoController.text,
         };
 
         await AuthService.createUserProfile(
@@ -262,6 +262,7 @@ class _RegisterPersonalScreenState extends State<RegisterPersonalScreen> {
         };
 
         await AuthService.createUserLocation(ubicacionData);
+
 
         // 4. Mostrar éxito y navegar
         if (mounted) {

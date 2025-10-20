@@ -1,4 +1,4 @@
-// lib/models/user.dart
+// lib/models/user_model.dart
 class User {
   final int idUsuario;
   final int? ubicacionId;
@@ -116,6 +116,7 @@ class User {
   }
 }
 
+// ✅ CLASE ACTUALIZADA CON BOOLEANOS
 class UserPersona {
   final int idPersona;
   final int idUsuario;
@@ -129,7 +130,8 @@ class UserPersona {
   final String? fotoPerfilUrl;
   final String disponibilidad; // 'ACTIVO' | 'INACTIVO'
   final double puntajePromedio;
-  final String rol; // 'EMPLEADOR' | 'EMPLEADO' | 'AMBOS'
+  final bool esEmpleador; // ✅ NUEVO: Reemplaza 'rol'
+  final bool esEmpleado;  // ✅ NUEVO: Reemplaza 'rol'
   final DateTime fechaRegistro;
   final String? contactoEmergencia;
   final DateTime createdAt;
@@ -148,7 +150,8 @@ class UserPersona {
     this.fotoPerfilUrl,
     required this.disponibilidad,
     required this.puntajePromedio,
-    required this.rol,
+    required this.esEmpleador, // ✅ CAMBIADO
+    required this.esEmpleado,  // ✅ CAMBIADO
     required this.fechaRegistro,
     this.contactoEmergencia,
     required this.createdAt,
@@ -173,7 +176,8 @@ class UserPersona {
       fotoPerfilUrl: json['foto_perfil_url'],
       disponibilidad: json['disponibilidad'],
       puntajePromedio: (json['puntaje_promedio'] ?? 0.0).toDouble(),
-      rol: json['rol'],
+      esEmpleador: json['es_empleador'] ?? false, // ✅ CAMBIADO
+      esEmpleado: json['es_empleado'] ?? false,   // ✅ CAMBIADO
       fechaRegistro: json['fecha_registro'] is String 
           ? DateTime.parse(json['fecha_registro'])
           : json['fecha_registro'] as DateTime,
@@ -201,12 +205,21 @@ class UserPersona {
       'foto_perfil_url': fotoPerfilUrl,
       'disponibilidad': disponibilidad,
       'puntaje_promedio': puntajePromedio,
-      'rol': rol,
+      'es_empleador': esEmpleador, // ✅ CAMBIADO
+      'es_empleado': esEmpleado,   // ✅ CAMBIADO
       'fecha_registro': fechaRegistro.toIso8601String(),
       'contacto_emergencia': contactoEmergencia,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
+  }
+
+  // ✅ NUEVO: Helper para mostrar rol de forma legible
+  String get rolDisplay {
+    if (esEmpleador && esEmpleado) return 'Empleador y Empleado';
+    if (esEmpleador) return 'Empleador';
+    if (esEmpleado) return 'Empleado';
+    return 'Sin rol asignado';
   }
 }
 

@@ -1,9 +1,11 @@
-// lib/screens/inicio_screen.dart
+// lib/screens/login/inicio_screen.dart
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
-import '../../models/user.dart' as AppUser;
+import '../../models/user_model.dart' as AppUser;
 import '../../components/app_logo.dart';
 import '../../components/primary_button.dart';
+import '../user/trabajos_screen.dart';
+import '../user/ubicaciones_screen.dart';
 
 class InicioScreen extends StatefulWidget {
   const InicioScreen({Key? key}) : super(key: key);
@@ -57,17 +59,17 @@ class _InicioScreenState extends State<InicioScreen> {
 
   void _navigateToScreen(String screenName) {
     switch (screenName) {
-      case 'Perfil':
+      case 'Mi Perfil':
         _showUserProfile();
         break;
-      case 'Rubros':
+      case 'Mis Rubros':
         _showComingSoon('Gestión de Rubros');
         break;
-      case 'Ubicaciones':
-        _showComingSoon('Gestión de Ubicaciones');
+      case 'Mis Ubicaciones':
+        Navigator.pushNamed(context, '/ubicaciones');
         break;
-      case 'Trabajos':
-        _showComingSoon('Gestión de Trabajos');
+      case 'Mis Trabajos':
+        Navigator.pushNamed(context, '/trabajos');
         break;
       case 'Chat':
         _showComingSoon('Chat');
@@ -169,7 +171,7 @@ class _InicioScreenState extends State<InicioScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _buildInfoRow('Rol', currentUser!.persona!.rol),
+          _buildInfoRow('Rol', currentUser!.persona!.rolDisplay), 
           _buildInfoRow('DNI', currentUser!.persona!.dni),
           _buildInfoRow('Username', currentUser!.persona!.username),
           _buildInfoRow('Nombre Completo', '${currentUser!.persona!.nombre} ${currentUser!.persona!.apellido}'),
@@ -351,10 +353,10 @@ class _InicioScreenState extends State<InicioScreen> {
 
   Widget _buildExpandedMenu() {
     final menuItems = [
-      {'title': 'Perfil', 'icon': Icons.person, 'color': Colors.blue},
-      {'title': 'Rubros', 'icon': Icons.category, 'color': Colors.purple},
-      {'title': 'Ubicaciones', 'icon': Icons.location_on, 'color': Colors.orange},
-      {'title': 'Trabajos', 'icon': Icons.work, 'color': Colors.green},
+      {'title': 'Mi Perfil', 'icon': Icons.person, 'color': Colors.blue},
+      {'title': 'Mis Rubros', 'icon': Icons.category, 'color': Colors.purple},
+      {'title': 'Mis Ubicaciones', 'icon': Icons.location_on, 'color': Colors.orange},
+      {'title': 'Mis Trabajos', 'icon': Icons.work, 'color': Colors.green},
       {'title': 'Chat', 'icon': Icons.chat, 'color': Colors.teal},
       {'title': 'Agenda', 'icon': Icons.event_note, 'color': Colors.indigo},
       {'title': 'Calendario', 'icon': Icons.calendar_today, 'color': Colors.red},

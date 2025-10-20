@@ -1,4 +1,7 @@
+// lib/screen/user/ubicacion_screen.dart
+
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UbicacionesScreen extends StatefulWidget {
   const UbicacionesScreen({Key? key}) : super(key: key);
@@ -8,32 +11,51 @@ class UbicacionesScreen extends StatefulWidget {
 }
 
 class _UbicacionesScreenState extends State<UbicacionesScreen> {
-  final List<Map<String, dynamic>> ubicaciones = [
-    {
-      'nombre': 'Oficina Principal',
-      'direccion': 'Av. Corrientes 1234, CABA',
-      'tipo': 'Oficina',
-      'activa': true,
-      'icon': Icons.business,
-      'color': Colors.blue,
-    },
-    {
-      'nombre': 'Home Office',
-      'direccion': 'Trabajo remoto',
-      'tipo': 'Remoto',
-      'activa': true,
-      'icon': Icons.home,
-      'color': Colors.green,
-    },
-    {
-      'nombre': 'Cliente - Empresa ABC',
-      'direccion': 'Puerto Madero, CABA',
-      'tipo': 'Cliente',
-      'activa': false,
-      'icon': Icons.location_city,
-      'color': Colors.orange,
-    },
-  ];
+  final supabase = Supabase.instance.client;
+  List<Map<String, dynamic>> ubicaciones = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarUbicaciones();
+  }
+
+  Future<void> _cargarUbicaciones() async {
+    try {
+      final authUser = supabase.auth.currentUser;
+      if (authUser == null) throw Exception('Usuario no autenticado');
+
+      // Buscar id_usuario en tu tabla usuario
+      final usuarioDb = await supabase
+          .from('usuario')
+          .select('id_usuario')
+          .eq('email', authUser.email!)
+          .maybeSingle();
+
+      if (usuarioDb == null) {
+        throw Exception('No se encontró el usuario en la tabla usuario');
+      }
+
+      final int idUsuario = usuarioDb['id_usuario'];
+
+      final response = await supabase
+          .from('ubicacion')
+          .select()
+          .eq('id_usuario', idUsuario);
+
+      setState(() {
+        ubicaciones = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      debugPrint('❌ Error al cargar ubicaciones: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar ubicaciones: $e')),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,73 +75,19 @@ class _UbicacionesScreenState extends State<UbicacionesScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_location, color: Colors.white),
-            onPressed: _showAddUbicacionDialog,
-          ),
-        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 24),
-            _buildUbicacionesList(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFC5414B), Color(0xFFE85A4F)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFC5414B).withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Gestiona tus Ubicaciones',
-            style: TextStyle(
-              fontSize: 24,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Administra los lugares donde realizas tu trabajo',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withOpacity(0.9),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUbicacionesList() {
-    return Column(
-      children: ubicaciones.map((ubicacion) => _buildUbicacionCard(ubicacion)).toList(),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ubicaciones.isEmpty
+              ? const Center(child: Text("No tienes ubicaciones registradas"))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(24),
+                  itemCount: ubicaciones.length,
+                  itemBuilder: (context, index) {
+                    final u = ubicaciones[index];
+                    return _buildUbicacionCard(u);
+                  },
+                ),
     );
   }
 
@@ -140,87 +108,26 @@ class _UbicacionesScreenState extends State<UbicacionesScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: ubicacion['color'].withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              ubicacion['icon'],
-              color: ubicacion['color'],
-              size: 24,
-            ),
-          ),
+          Icon(Icons.location_on, color: const Color(0xFFC5414B), size: 30),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      ubicacion['nombre'],
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: ubicacion['color'].withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        ubicacion['tipo'],
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: ubicacion['color'],
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  ubicacion['nombre'] ?? 'Ubicación sin nombre',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  ubicacion['direccion'],
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+                  "${ubicacion['calle'] ?? ''} ${ubicacion['numero'] ?? ''}, ${ubicacion['barrio'] ?? ''}, ${ubicacion['ciudad'] ?? ''}, ${ubicacion['provincia'] ?? ''}",
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ],
             ),
-          ),
-          Switch(
-            value: ubicacion['activa'],
-            onChanged: (value) {
-              setState(() {
-                ubicacion['activa'] = value;
-              });
-            },
-            activeColor: const Color(0xFFC5414B),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddUbicacionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Agregar Nueva Ubicación'),
-        content: const Text('Funcionalidad próximamente disponible'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
           ),
         ],
       ),

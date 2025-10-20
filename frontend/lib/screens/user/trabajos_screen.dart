@@ -1,4 +1,7 @@
+// lib/screens/user/trabajos_screen.dart
 import 'package:flutter/material.dart';
+import '../../services/trabajo_service.dart';
+import '../../models/trabajo_model.dart';
 
 class TrabajosScreen extends StatefulWidget {
   const TrabajosScreen({Key? key}) : super(key: key);
@@ -8,38 +11,94 @@ class TrabajosScreen extends StatefulWidget {
 }
 
 class _TrabajosScreenState extends State<TrabajosScreen> {
-  final List<Map<String, dynamic>> trabajos = [
-    {
-      'titulo': 'App Móvil E-commerce',
-      'cliente': 'TechCorp SA',
-      'estado': 'En Progreso',
-      'progreso': 0.75,
-      'fechaInicio': '15 Ene 2024',
-      'fechaFin': '30 Mar 2024',
-      'color': Colors.blue,
-      'prioridad': 'Alta',
-    },
-    {
-      'titulo': 'Sistema de Gestión',
-      'cliente': 'Empresa XYZ',
-      'estado': 'Completado',
-      'progreso': 1.0,
-      'fechaInicio': '01 Dic 2023',
-      'fechaFin': '15 Ene 2024',
-      'color': Colors.green,
-      'prioridad': 'Media',
-    },
-    {
-      'titulo': 'Consultoría IT',
-      'cliente': 'StartupABC',
-      'estado': 'Pendiente',
-      'progreso': 0.0,
-      'fechaInicio': '01 Abr 2024',
-      'fechaFin': '30 Jun 2024',
-      'color': Colors.orange,
-      'prioridad': 'Baja',
-    },
-  ];
+  final TrabajoService _trabajoService = TrabajoService();
+  List<TrabajoModel> trabajos = [];
+  bool isLoading = true;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarTrabajos();
+  }
+
+  Future<void> _cargarTrabajos() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final result = await _trabajoService.getMisTrabajos();
+      setState(() {
+        trabajos = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = e.toString();
+        isLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar trabajos: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  String _getEstadoLabel(String estado) {
+    switch (estado.toUpperCase()) {
+      case 'PUBLICADO':
+        return 'Publicado';
+      case 'EN_PROGRESO':
+        return 'En Progreso';
+      case 'COMPLETADO':
+        return 'Completado';
+      case 'CANCELADO':
+        return 'Cancelado';
+      default:
+        return estado;
+    }
+  }
+
+  Color _getEstadoColor(String estado) {
+    switch (estado.toUpperCase()) {
+      case 'PUBLICADO':
+        return Colors.blue;
+      case 'EN_PROGRESO':
+        return Colors.orange;
+      case 'COMPLETADO':
+        return Colors.green;
+      case 'CANCELADO':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getUrgenciaLabel(String urgencia) {
+    switch (urgencia.toUpperCase()) {
+      case 'ALTA':
+        return 'Alta';
+      case 'MEDIA':
+        return 'Media';
+      case 'BAJA':
+        return 'Baja';
+      case 'ESTANDAR':
+        return 'Estándar';
+      default:
+        return urgencia;
+    }
+  }
+
+  int get _trabajosPublicados => trabajos.where((t) => t.estado.toUpperCase() == 'PUBLICADO').length;
+  int get _trabajosEnProgreso => trabajos.where((t) => t.estado.toUpperCase() == 'EN_PROGRESO').length;
+  int get _trabajosCompletados => trabajos.where((t) => t.estado.toUpperCase() == 'COMPLETADO').length;
 
   @override
   Widget build(BuildContext context) {
@@ -61,23 +120,125 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_task, color: Colors.white),
-            onPressed: _showAddTrabajoDialog,
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _cargarTrabajos,
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+      body: RefreshIndicator(
+        onRefresh: _cargarTrabajos,
+        child: _buildBody(),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // TODO: Navegar a crear trabajo
+          Navigator.pushNamed(context, '/crear-trabajo');
+        },
+        backgroundColor: const Color(0xFFC5414B),
+        icon: const Icon(Icons.add),
+        label: const Text('Crear Trabajo'),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFC5414B)),
+        ),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildHeader(),
+            const Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Error al cargar trabajos',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                errorMessage!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
-            _buildEstadisticas(),
-            const SizedBox(height: 24),
-            _buildTrabajosList(),
+            ElevatedButton.icon(
+              onPressed: _cargarTrabajos,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFC5414B),
+              ),
+            ),
           ],
         ),
+      );
+    }
+
+    if (trabajos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.work_off,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No tienes trabajos publicados',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Crea tu primer trabajo para comenzar',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+          const SizedBox(height: 24),
+          _buildEstadisticas(),
+          const SizedBox(height: 24),
+          _buildTrabajosList(),
+          const SizedBox(height: 80), // Espacio para el FAB
+        ],
       ),
     );
   }
@@ -114,7 +275,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Administra todos tus proyectos y tareas',
+            'Administra todos tus proyectos publicados',
             style: TextStyle(
               fontSize: 14,
               color: Colors.white.withOpacity(0.9),
@@ -128,11 +289,32 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   Widget _buildEstadisticas() {
     return Row(
       children: [
-        Expanded(child: _buildStatCard('Total', '${trabajos.length}', Icons.work, Colors.blue)),
+        Expanded(
+          child: _buildStatCard(
+            'Total',
+            '${trabajos.length}',
+            Icons.work,
+            Colors.blue,
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _buildStatCard('En Progreso', '1', Icons.pending, Colors.orange)),
+        Expanded(
+          child: _buildStatCard(
+            'Publicados',
+            '$_trabajosPublicados',
+            Icons.visibility,
+            Colors.orange,
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _buildStatCard('Completados', '1', Icons.check_circle, Colors.green)),
+        Expanded(
+          child: _buildStatCard(
+            'Completados',
+            '$_trabajosCompletados',
+            Icons.check_circle,
+            Colors.green,
+          ),
+        ),
       ],
     );
   }
@@ -177,11 +359,23 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
   Widget _buildTrabajosList() {
     return Column(
-      children: trabajos.map((trabajo) => _buildTrabajoCard(trabajo)).toList(),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Trabajos Publicados (${trabajos.length})',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...trabajos.map((trabajo) => _buildTrabajoCard(trabajo)).toList(),
+      ],
     );
   }
 
-  Widget _buildTrabajoCard(Map<String, dynamic> trabajo) {
+  Widget _buildTrabajoCard(TrabajoModel trabajo) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -199,6 +393,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header del trabajo
           Row(
             children: [
               Expanded(
@@ -206,7 +401,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      trabajo['titulo'],
+                      trabajo.titulo,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -215,7 +410,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      trabajo['cliente'],
+                      trabajo.nombreRubro,
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
@@ -227,63 +422,133 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: trabajo['color'].withOpacity(0.1),
+                  color: _getEstadoColor(trabajo.estado).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  trabajo['estado'],
+                  _getEstadoLabel(trabajo.estado),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: trabajo['color'],
+                    color: _getEstadoColor(trabajo.estado),
                   ),
                 ),
               ),
             ],
           ),
+          
+          const SizedBox(height: 12),
+          
+          // Descripción
+          Text(
+            trabajo.descripcion,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[700],
+              height: 1.4,
+            ),
+          ),
+          
           const SizedBox(height: 16),
+          
+          // Información adicional
           Row(
             children: [
-              Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+              Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
               const SizedBox(width: 4),
-              Text(
-                '${trabajo['fechaInicio']} - ${trabajo['fechaFin']}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
+              Expanded(
+                child: Text(
+                  trabajo.direccionCompleta,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.flag, size: 12, color: Colors.grey[700]),
+                    const SizedBox(width: 4),
+                    Text(
+                      _getUrgenciaLabel(trabajo.urgencia),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
+          
           const SizedBox(height: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          
+          // Salario y método de pago
+          Row(
             children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.payments, size: 16, color: Colors.green[700]),
+                    const SizedBox(width: 4),
+                    Text(
+                      trabajo.salario != null 
+                          ? '\$${trabajo.salario!.toStringAsFixed(0)}' 
+                          : 'A convenir',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[700],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      trabajo.metodoPago,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Botones de acción
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Progreso',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 20),
+                    color: const Color(0xFFC5414B),
+                    onPressed: () {
+                      // TODO: Navegar a editar trabajo
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Editar trabajo próximamente'),
+                        ),
+                      );
+                    },
                   ),
-                  Text(
-                    '${(trabajo['progreso'] * 100).toInt()}%',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, size: 20),
+                    color: Colors.red,
+                    onPressed: () => _confirmarEliminar(trabajo),
                   ),
                 ],
-              ),
-              const SizedBox(height: 4),
-              LinearProgressIndicator(
-                value: trabajo['progreso'],
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(trabajo['color']),
               ),
             ],
           ),
@@ -292,19 +557,46 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     );
   }
 
-  void _showAddTrabajoDialog() {
-    showDialog(
+  Future<void> _confirmarEliminar(TrabajoModel trabajo) async {
+    final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Agregar Nuevo Trabajo'),
-        content: const Text('Funcionalidad próximamente disponible'),
+        title: const Text('Eliminar Trabajo'),
+        content: Text('¿Estás seguro de eliminar "${trabajo.titulo}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Eliminar'),
           ),
         ],
       ),
     );
+
+    if (confirmar == true && mounted) {
+      try {
+        await _trabajoService.deleteTrabajo(trabajo.id);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Trabajo eliminado correctamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        _cargarTrabajos(); // Recargar lista
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al eliminar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

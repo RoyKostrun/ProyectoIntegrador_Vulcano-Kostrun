@@ -1,4 +1,4 @@
-import 'user.dart';
+import 'user_model.dart';
 class Opportunity {
   final String id;
   final String title;

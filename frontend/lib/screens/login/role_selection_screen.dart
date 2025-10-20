@@ -1,4 +1,4 @@
-// lib/screens/role_selection_screen.dart
+// lib/screens/login/role_selection_screen.dart
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 
@@ -11,28 +11,48 @@ class RoleSelectionScreen extends StatefulWidget {
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   bool _isLoading = false;
+  
+  // ✅ NUEVO: Permitir selección múltiple
+  bool _esEmpleador = false;
+  bool _esEmpleado = false;
 
-  Future<void> _selectRole(String role) async {
+  Future<void> _continuar() async {
+    // Validar que al menos uno esté seleccionado
+    if (!_esEmpleador && !_esEmpleado) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor selecciona al menos un rol'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      // Guardar el rol en la base de datos
-      await AuthService.updateUserRole(role);
+      // Guardar los roles en la base de datos
+      await AuthService.updateUserRoles(
+        esEmpleador: _esEmpleador,
+        esEmpleado: _esEmpleado,
+      );
       
       if (mounted) {
+        final rolesText = _esEmpleador && _esEmpleado
+            ? 'Empleador y Empleado'
+            : _esEmpleador
+                ? 'Empleador'
+                : 'Empleado';
+                
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ Rol "$role" seleccionado correctamente'),
+            content: Text('✅ Roles seleccionados: $rolesText'),
             backgroundColor: Colors.green,
           ),
         );
         
         // Navegar a la selección de rubros
-        Navigator.pushReplacementNamed(
-          context, 
-          '/rubros-bubbles', 
-          arguments: {'role': role}
-        );
+        Navigator.pushReplacementNamed(context, '/rubros-bubbles');
       }
     } catch (error) {
       if (mounted) {
@@ -48,18 +68,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     }
   }
 
-  void _selectEmpleador(BuildContext context) {
-    if (!_isLoading) {
-      _selectRole('EMPLEADOR');
-    }
-  }
-
-  void _selectEmpleado(BuildContext context) {
-    if (!_isLoading) {
-      _selectRole('EMPLEADO');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -67,7 +75,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            Padding(
+            SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 32.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -78,7 +86,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: GestureDetector(
-                        onTap: () => Navigator.pop(context),
+                        onTap: _isLoading ? null : () => Navigator.pop(context),
                         child: Container(
                           width: 44,
                           height: 44,
@@ -100,7 +108,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   
                   // Título
                   const Text(
-                    '¿Cómo quieres comenzar?',
+                    '¿Cómo quieres usar ChangApp?',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 28,
@@ -114,7 +122,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   
                   // Subtítulo
                   Text(
-                    'Selecciona tu rol en la plataforma para personalizar tu experiencia',
+                    'Puedes seleccionar uno o ambos roles',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
@@ -125,30 +133,67 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   
                   const SizedBox(height: 50),
                   
-                  // Tarjeta Empleador
-                  _RoleCard(
+                  // ✅ Checkbox Empleador
+                  _RoleCheckbox(
                     title: 'EMPLEADOR',
                     subtitle: 'Demandante de servicios',
                     description: 'Busca y contrata profesionales para tus proyectos',
                     icon: Icons.business_center,
-                    onTap: () => _selectEmpleador(context),
-                    isEnabled: !_isLoading,
+                    isSelected: _esEmpleador,
+                    onChanged: _isLoading ? null : (value) {
+                      setState(() => _esEmpleador = value);
+                    },
                   ),
                   
                   const SizedBox(height: 20),
                   
-                  // Tarjeta Empleado
-                  _RoleCard(
+                  // ✅ Checkbox Empleado
+                  _RoleCheckbox(
                     title: 'EMPLEADO',
                     subtitle: 'Oferente de servicios',
                     description: 'Ofrece tus servicios y encuentra oportunidades laborales',
                     icon: Icons.work_outline,
-                    onTap: () => _selectEmpleado(context),
-                    isEnabled: !_isLoading,
+                    isSelected: _esEmpleado,
+                    onChanged: _isLoading ? null : (value) {
+                      setState(() => _esEmpleado = value);
+                    },
                   ),
                   
-                  // Spacer flexible
-                  const Spacer(),
+                  const SizedBox(height: 40),
+                  
+                  // Botón continuar
+                  ElevatedButton(
+                    onPressed: (_esEmpleador || _esEmpleado) && !_isLoading
+                        ? _continuar
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFFC5414B),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      disabledBackgroundColor: Colors.white.withOpacity(0.3),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFC5414B)),
+                            ),
+                          )
+                        : const Text(
+                            'Continuar',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                  
+                  const SizedBox(height: 40),
                   
                   // Indicador de página
                   Center(
@@ -166,31 +211,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 ],
               ),
             ),
-            
-            // Overlay de loading
-            if (_isLoading)
-              Container(
-                color: Colors.black.withOpacity(0.5),
-                child: const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Guardando rol...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -198,127 +218,118 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   }
 }
 
-class _RoleCard extends StatelessWidget {
+// ✅ NUEVO: Widget para checkbox de rol
+class _RoleCheckbox extends StatelessWidget {
   final String title;
   final String subtitle;
   final String description;
   final IconData icon;
-  final VoidCallback onTap;
-  final bool isEnabled;
+  final bool isSelected;
+  final Function(bool)? onChanged;
 
-  const _RoleCard({
+  const _RoleCheckbox({
     Key? key,
     required this.title,
     required this.subtitle,
     required this.description,
     required this.icon,
-    required this.onTap,
-    this.isEnabled = true,
+    required this.isSelected,
+    this.onChanged,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isEnabled ? 1.0 : 0.6,
-      child: GestureDetector(
-        onTap: isEnabled ? onTap : null,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1,
+    return GestureDetector(
+      onTap: onChanged != null ? () => onChanged!(!isSelected) : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFC5414B) : Colors.transparent,
+            width: 3,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected 
+                  ? const Color(0xFFC5414B).withOpacity(0.3)
+                  : Colors.black.withOpacity(0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Ícono
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFC5414B),
-                  borderRadius: BorderRadius.circular(16),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Checkbox
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFFC5414B) : Colors.white,
+                border: Border.all(
+                  color: isSelected ? const Color(0xFFC5414B) : Colors.grey.shade400,
+                  width: 2,
                 ),
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 28,
-                ),
+                borderRadius: BorderRadius.circular(6),
               ),
-              
-              const SizedBox(width: 20),
-              
-              // Textos
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Título principal
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                        letterSpacing: 0.3,
-                      ),
+              child: isSelected
+                  ? const Icon(Icons.check, color: Colors.white, size: 20)
+                  : null,
+            ),
+            
+            const SizedBox(width: 16),
+            
+            // Ícono
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFC5414B).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: const Color(0xFFC5414B), size: 24),
+            ),
+            
+            const SizedBox(width: 16),
+            
+            // Textos
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
                     ),
-                    
-                    const SizedBox(height: 4),
-                    
-                    // Subtítulo
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFC5414B),
-                        letterSpacing: 0.2,
-                      ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFC5414B),
                     ),
-                    
-                    const SizedBox(height: 6),
-                    
-                    // Descripción
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[600],
-                        height: 1.4,
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[700],
+                      height: 1.3,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              
-              // Flecha
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.grey[600],
-                  size: 16,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

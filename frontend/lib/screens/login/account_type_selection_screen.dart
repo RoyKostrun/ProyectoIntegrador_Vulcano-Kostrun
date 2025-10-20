@@ -1,4 +1,4 @@
-// lib/screens/account_type_selection_screen.dart
+// lib/screens/login/account_type_selection_screen.dart
 import 'package:flutter/material.dart';
 
 class AccountTypeSelectionScreen extends StatelessWidget {

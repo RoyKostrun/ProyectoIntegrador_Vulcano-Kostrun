@@ -14,14 +14,14 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   cupertino_icons: ^1.0.6
-  supabase_flutter: ^2.3.4
-  postgres: ^2.4.6  
-  postgrest: ^2.1.4  
+  supabase_flutter: ^2.10.1
+  postgres: ^3.5.6
+  postgrest: ^2.1.4
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

@@ -1,4 +1,4 @@
-// lib/screens/register_empresarial_screen.dart
+// lib/screens/login/register_empresarial_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Para CUIT validation
 import '../../components/section_container.dart';
@@ -232,7 +232,6 @@ class _RegisterEmpresarialScreenState extends State<RegisterEmpresarialScreen> {
           'cuit': _cuitController.text.trim(),
           'representanteLegal': _representanteController.text.trim(),
           'telefono': _telefonoController.text.trim(),
-          'contrasena': _passwordController.text,
         };
 
         await AuthService.createUserProfile(

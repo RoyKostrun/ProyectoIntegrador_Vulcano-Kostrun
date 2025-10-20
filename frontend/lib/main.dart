@@ -9,6 +9,10 @@ import 'screens/login/register_empresarial_screen.dart';
 import 'screens/login/rubros_bubbles_screen.dart'; 
 import 'screens/login/role_selection_screen.dart';
 import 'screens/login/inicio_screen.dart';
+import 'screens/user/trabajos_screen.dart';
+import 'screens/user/ubicaciones_screen.dart';
+import 'screens/main_nav_screen.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,13 +46,16 @@ class MyApp extends StatelessWidget {
       // Rutas
       initialRoute: '/login',
       routes: {
-        '/login':                    (context) => const LoginScreen(),
-        '/account-type-selection':   (context) => const AccountTypeSelectionScreen(),
-        '/register-personal':        (context) => const RegisterPersonalScreen(),
-        '/register-empresarial':     (context) => const RegisterEmpresarialScreen(),
-        '/rubros-bubbles':           (context) => const RubrosBubblesScreen(), 
-        '/inicio':                   (context) => const InicioScreen(),
-        '/role-selection':           (context) => const RoleSelectionScreen(),
+        '/login':                     (context) => const LoginScreen(),
+        '/account-type-selection':    (context) => const AccountTypeSelectionScreen(),
+        '/register-personal':         (context) => const RegisterPersonalScreen(),
+        '/register-empresarial':      (context) => const RegisterEmpresarialScreen(),
+        '/rubros-bubbles':            (context) => const RubrosBubblesScreen(), 
+        '/inicio':                    (context) => const InicioScreen(),
+        '/role-selection':            (context) => const RoleSelectionScreen(),
+        '/trabajos':                  (context) => TrabajosScreen(),
+        '/ubicaciones':               (context) => UbicacionesScreen(),
+        '/main-nav':                  (context) => const MainNavScreen(),
       },
     );
   }

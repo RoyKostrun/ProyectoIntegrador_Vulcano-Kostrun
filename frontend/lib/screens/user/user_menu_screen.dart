@@ -2,19 +2,17 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../models/user_model.dart' as AppUser;
-import '../../components/app_logo.dart';
 import '../../components/primary_button.dart';
-import '../user/trabajos_screen.dart';
-import '../user/ubicaciones_screen.dart';
 
-class InicioScreen extends StatefulWidget {
-  const InicioScreen({Key? key}) : super(key: key);
+
+class UserMenuScreen extends StatefulWidget {
+  const UserMenuScreen({Key? key}) : super(key: key);
 
   @override
-  State<InicioScreen> createState() => _InicioScreenState();
+  State<UserMenuScreen> createState() => _UserMenuScreenState();
 }
 
-class _InicioScreenState extends State<InicioScreen> {
+class _UserMenuScreenState extends State<UserMenuScreen> {
   AppUser.User? currentUser;
   bool isLoading = true;
 
@@ -60,7 +58,7 @@ class _InicioScreenState extends State<InicioScreen> {
   void _navigateToScreen(String screenName) {
     switch (screenName) {
       case 'Mi Perfil':
-        _showUserProfile();
+        Navigator.pushNamed(context, '/perfil');
         break;
       case 'Mis Rubros':
         _showComingSoon('Gestión de Rubros');

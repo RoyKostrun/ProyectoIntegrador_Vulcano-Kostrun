@@ -132,7 +132,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           // TODO: Navegar a crear trabajo
-          Navigator.pushNamed(context, '/crear-trabajo');
+          Navigator.pushNamed(context, '/create-trabajo');
         },
         backgroundColor: const Color(0xFFC5414B),
         icon: const Icon(Icons.add),
@@ -517,7 +517,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      trabajo.metodoPago,
+                      trabajo.metodoPago ?? 'No especificado',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[600],

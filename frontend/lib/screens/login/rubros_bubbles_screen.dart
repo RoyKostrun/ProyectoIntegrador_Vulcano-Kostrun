@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../models/rubro_model.dart';
 import '../../services/rubro_service.dart';
-import '../../services/auth_service.dart'; // 👈 Agregar import
+import '../../services/auth_service.dart';
 import '../../utils/icon_helper.dart';
 
 class RubrosBubblesScreen extends StatefulWidget {
@@ -13,17 +13,36 @@ class RubrosBubblesScreen extends StatefulWidget {
 }
 
 class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
+  // ✅ NUEVO: Variables para recibir los roles
+  bool _esEmpleador = false;
+  bool _esEmpleado = false;
+
   Set<int> selectedRubros = {};
   Set<int> hoveredRubros = {};
   List<Rubro> rubros = [];
   bool isLoading = true;
-  bool isSaving = false; // 👈 Agregar estado de guardado
+  bool isSaving = false;
   String? errorMessage;
 
   @override
   void initState() {
     super.initState();
     _loadRubros();
+  }
+
+  // ✅ NUEVO: Recibir los roles desde la navegación
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      _esEmpleador = args['esEmpleador'] ?? false;
+      _esEmpleado = args['esEmpleado'] ?? false;
+      print(
+          '📋 Roles recibidos: empleador=$_esEmpleador, empleado=$_esEmpleado');
+    }
   }
 
   Future<void> _loadRubros() async {
@@ -34,12 +53,11 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
       });
 
       final loadedRubros = await RubroService.getRubros();
-      
+
       setState(() {
         rubros = loadedRubros;
         isLoading = false;
       });
-
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -72,7 +90,7 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
     await _loadRubros();
   }
 
-  // ✅ MÉTODO PARA CONTINUAR Y GUARDAR RUBROS
+  // ✅ MÉTODO PARA CONTINUAR Y GUARDAR TODO
   Future<void> _continueWithSelectedRubros() async {
     if (selectedRubros.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -87,40 +105,48 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
     setState(() => isSaving = true);
 
     try {
-      // Obtener los nombres de los rubros seleccionados
+      // ✅ 1. GUARDAR ROLES
+      print(
+          '💾 Guardando roles: empleador=$_esEmpleador, empleado=$_esEmpleado');
+      await AuthService.updateUserRoles(
+        esEmpleador: _esEmpleador,
+        esEmpleado: _esEmpleado,
+      );
+
+      // ✅ 2. GUARDAR RUBROS
       final nombresSeleccionados = rubros
           .where((r) => selectedRubros.contains(r.idRubro))
           .map((r) => r.nombre)
           .toList();
 
-      print('📋 Guardando rubros: $nombresSeleccionados');
-
-      // Guardar rubros en la base de datos
+      print('💾 Guardando rubros: $nombresSeleccionados');
       await AuthService.saveUserRubros(nombresSeleccionados);
-      
-      // Marcar onboarding como completado
+
+      // ✅ 3. MARCAR ONBOARDING COMPLETADO
+      print('✅ Marcando onboarding como completado');
       await AuthService.markOnboardingCompleted();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ Configuración completada! Rubros: ${nombresSeleccionados.join(', ')}'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        print('🚀 Navegando a /main-nav');
 
-        // ✅ NAVEGAR A LA PANTALLA DE INICIO
+        // ✅ NAVEGAR A LA PANTALLA PRINCIPAL
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/main-nav',
-          (route) => false, // Eliminar todas las rutas previas
+          (route) => false,
+          arguments: {'initialTab': 0},
         );
+    }
+  });
       }
     } catch (error) {
-      print('❌ Error guardando rubros: $error');
-      
+      print('❌ Error en onboarding: $error');
+
       if (mounted) {
+        setState(() => isSaving = false);
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $error'),
@@ -129,8 +155,6 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
           ),
         );
       }
-    } finally {
-      if (mounted) setState(() => isSaving = false);
     }
   }
 
@@ -141,10 +165,7 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF374151),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: isSaving ? null : () => Navigator.pop(context), // 👈 Deshabilitar si está guardando
-        ),
+        automaticallyImplyLeading: false, // ✅ AGREGADO: Elimina botón de atrás
         title: const Text(
           'Selecciona Rubros',
           style: TextStyle(
@@ -154,7 +175,7 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: isSaving ? null : _refreshRubros, // 👈 Deshabilitar si está guardando
+            onPressed: isSaving ? null : _refreshRubros,
             icon: const Icon(
               Icons.refresh,
               color: Colors.white,
@@ -163,7 +184,7 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
         ],
       ),
       body: SafeArea(
-        child: Stack( // 👈 Cambiar a Stack para overlay de loading
+        child: Stack(
           children: [
             Column(
               children: [
@@ -195,7 +216,8 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
                       // Contador de seleccionados
                       if (selectedRubros.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
                             color: const Color(0xFFC5414B),
                             borderRadius: BorderRadius.circular(20),
@@ -218,13 +240,13 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
                   child: _buildContent(),
                 ),
 
-                // Bottom Button - ✅ BOTÓN CORREGIDO
+                // Bottom Button
                 if (selectedRubros.isNotEmpty)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(24.0),
                     child: ElevatedButton(
-                      onPressed: isSaving ? null : _continueWithSelectedRubros, // 👈 Método correcto
+                      onPressed: isSaving ? null : _continueWithSelectedRubros,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFC5414B),
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -233,7 +255,7 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
                         ),
                       ),
                       child: isSaving
-                          ? const Row( // 👈 Mostrar loading cuando está guardando
+                          ? const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 SizedBox(
@@ -241,7 +263,8 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
                                   ),
                                 ),
                                 SizedBox(width: 12),
@@ -267,8 +290,8 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
                   ),
               ],
             ),
-            
-            // ✅ OVERLAY DE LOADING GENERAL
+
+            // Overlay de loading
             if (isSaving)
               Container(
                 color: Colors.black.withOpacity(0.5),
@@ -277,7 +300,8 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFC5414B)),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFFC5414B)),
                       ),
                       SizedBox(height: 16),
                       Text(
@@ -384,15 +408,14 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
       );
     }
 
-    // ✅ GRID EXACTO COMO LA IMAGEN: 3 COLUMNAS, N FILAS
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
       child: GridView.builder(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3, // EXACTAMENTE 3 COLUMNAS
-          crossAxisSpacing: 16, // Espaciado horizontal uniforme
-          mainAxisSpacing: 16, // Espaciado vertical uniforme
-          childAspectRatio: 1.0, // Círculos perfectos
+          crossAxisCount: 3,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 1.0,
         ),
         itemCount: rubros.length,
         itemBuilder: (context, index) {
@@ -415,9 +438,7 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
-            color: isSelected
-                ? const Color(0xFFC5414B)
-                : Colors.white,
+            color: isSelected ? const Color(0xFFC5414B) : Colors.white,
             shape: BoxShape.circle,
             border: Border.all(
               color: isSelected
@@ -453,10 +474,8 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
       children: [
         Icon(
           IconHelper.getIcon(rubro.iconName),
-          size: 42, // Ícono más grande para el círculo más grande
-          color: isSelected
-              ? Colors.white
-              : const Color(0xFFC5414B),
+          size: 42,
+          color: isSelected ? Colors.white : const Color(0xFFC5414B),
         ),
         const SizedBox(height: 8),
         Padding(
@@ -464,11 +483,9 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
           child: Text(
             rubro.nombre,
             style: TextStyle(
-              fontSize: 13, // Texto más grande y legible
+              fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: isSelected
-                  ? Colors.white
-                  : const Color(0xFFC5414B),
+              color: isSelected ? Colors.white : const Color(0xFFC5414B),
               height: 1.2,
             ),
             textAlign: TextAlign.center,
@@ -490,9 +507,7 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
           Icon(
             Icons.info_outline,
             size: 28,
-            color: isSelected
-                ? Colors.white
-                : const Color(0xFFC5414B),
+            color: isSelected ? Colors.white : const Color(0xFFC5414B),
           ),
           const SizedBox(height: 6),
           Expanded(
@@ -502,9 +517,7 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  color: isSelected
-                      ? Colors.white
-                      : const Color(0xFF374151),
+                  color: isSelected ? Colors.white : const Color(0xFF374151),
                   height: 1.3,
                 ),
                 textAlign: TextAlign.center,

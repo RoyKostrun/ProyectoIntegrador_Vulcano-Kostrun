@@ -8,10 +8,13 @@ import 'screens/login/register_personal_screen.dart';
 import 'screens/login/register_empresarial_screen.dart';
 import 'screens/login/rubros_bubbles_screen.dart'; 
 import 'screens/login/role_selection_screen.dart';
-import 'screens/login/inicio_screen.dart';
+import 'screens/user/user_menu_screen.dart';
 import 'screens/user/trabajos_screen.dart';
+import 'screens/user/perfil_screen.dart';
 import 'screens/user/ubicaciones_screen.dart';
 import 'screens/main_nav_screen.dart';
+import 'screens/jobs/postulaciones_trabajo_screen.dart';
+
 
 
 void main() async {
@@ -51,12 +54,22 @@ class MyApp extends StatelessWidget {
         '/register-personal':         (context) => const RegisterPersonalScreen(),
         '/register-empresarial':      (context) => const RegisterEmpresarialScreen(),
         '/rubros-bubbles':            (context) => const RubrosBubblesScreen(), 
-        '/inicio':                    (context) => const InicioScreen(),
+        '/user_menu':                    (context) => const UserMenuScreen(),
         '/role-selection':            (context) => const RoleSelectionScreen(),
         '/trabajos':                  (context) => TrabajosScreen(),
         '/ubicaciones':               (context) => UbicacionesScreen(),
-        '/main-nav':                  (context) => const MainNavScreen(),
+        '/perfil':                    (context) => const PerfilScreen(),
+        '/main-nav': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+          final initialTab = args?['initialTab'] as int? ?? 0;
+          return MainNavScreen(initialTab: initialTab);
+          },
+        '/postulaciones-trabajo': (context) {
+          final trabajoId = ModalRoute.of(context)?.settings.arguments as int;
+          return PostulacionesTrabajoScreen(trabajoId: trabajoId);
+          },
       },
     );
   }
 }
+

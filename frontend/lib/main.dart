@@ -9,6 +9,7 @@ import 'screens/login/register_empresarial_screen.dart';
 import 'screens/login/rubros_bubbles_screen.dart'; 
 import 'screens/login/role_selection_screen.dart';
 import 'screens/user/user_menu_screen.dart';
+import 'screens/login/forgot_password_screen.dart'; // ✅ NUEVO
 import 'screens/user/trabajos_screen.dart';
 import 'screens/user/perfil_screen.dart';
 import 'screens/user/ubicaciones_screen.dart';
@@ -50,6 +51,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login':                     (context) => const LoginScreen(),
+        '/forgot-password':           (context) => const ForgotPasswordScreen(), // ✅ NUEVO
         '/account-type-selection':    (context) => const AccountTypeSelectionScreen(),
         '/register-personal':         (context) => const RegisterPersonalScreen(),
         '/register-empresarial':      (context) => const RegisterEmpresarialScreen(),

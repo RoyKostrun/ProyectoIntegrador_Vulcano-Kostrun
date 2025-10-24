@@ -5,6 +5,7 @@ import '../../components/app_logo.dart';
 import '../../components/custom_text_field.dart';
 import '../../components/primary_button.dart';
 import '../../services/auth_service.dart';
+import '../../utils/auth_error_handler.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -22,28 +23,75 @@ class _LoginScreenState extends State<LoginScreen> {
   // Variables para errores
   bool _emailError = false;
   bool _passwordError = false;
+  String? _emailErrorMessage;
+  String? _passwordErrorMessage;
+  String? _generalErrorMessage; // ✅ NUEVO: Error general del login
 
   @override
   void initState() {
     super.initState();
-    _emailOrDniController.addListener(_clearErrors);
+    _emailOrDniController.addListener(_validateEmailOnTyping);
     _passwordController.addListener(_clearErrors);
   }
 
   @override
   void dispose() {
-    _emailOrDniController.removeListener(_clearErrors);
+    _emailOrDniController.removeListener(_validateEmailOnTyping);
     _passwordController.removeListener(_clearErrors);
     _emailOrDniController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
+  // ✅ NUEVO: Validar email mientras escribe
+  void _validateEmailOnTyping() {
+    final value = _emailOrDniController.text.trim();
+    
+    // Si está vacío, no mostrar error aún
+    if (value.isEmpty) {
+      setState(() {
+        _emailError = false;
+        _emailErrorMessage = null;
+        _generalErrorMessage = null;
+      });
+      return;
+    }
+    
+    // Si parece ser un DNI (8 dígitos), no validar como email
+    if (RegExp(r'^[0-9]{1,8}$').hasMatch(value)) {
+      setState(() {
+        _emailError = false;
+        _emailErrorMessage = null;
+        _generalErrorMessage = null;
+      });
+      return;
+    }
+    
+    // Validar formato de email
+    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    if (!emailRegex.hasMatch(value)) {
+      setState(() {
+        _emailError = true;
+        _emailErrorMessage = 'Ejemplo válido: nombre@dominio.com';
+        _generalErrorMessage = null;
+      });
+    } else {
+      setState(() {
+        _emailError = false;
+        _emailErrorMessage = null;
+        _generalErrorMessage = null;
+      });
+    }
+  }
+
   void _clearErrors() {
-    if (_emailError || _passwordError) {
+    if (_emailError || _passwordError || _generalErrorMessage != null) {
       setState(() {
         _emailError = false;
         _passwordError = false;
+        _emailErrorMessage = null;
+        _passwordErrorMessage = null;
+        _generalErrorMessage = null;
       });
     }
   }
@@ -54,18 +102,51 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  // ✅ MEJORADO: Login con validaciones y manejo de errores
   void _onLogin() async {
+    // Limpiar errores previos
     setState(() {
-      _emailError = _emailOrDniController.text.isEmpty;
-      _passwordError = _passwordController.text.isEmpty;
+      _emailError = false;
+      _passwordError = false;
+      _emailErrorMessage = null;
+      _passwordErrorMessage = null;
+      _generalErrorMessage = null;
     });
+
+    // Validar campos vacíos
+    if (_emailOrDniController.text.trim().isEmpty) {
+      setState(() {
+        _emailError = true;
+        _emailErrorMessage = 'Este campo es requerido';
+      });
+    }
+    
+    if (_passwordController.text.isEmpty) {
+      setState(() {
+        _passwordError = true;
+        _passwordErrorMessage = 'Este campo es requerido';
+      });
+    }
+
     if (_emailError || _passwordError) return;
+
+    // ✅ NUEVO: Verificar si el usuario está bloqueado ANTES de intentar login
+    final emailOrDni = _emailOrDniController.text.trim();
+    final isBlocked = await AuthService.isUserBlocked(emailOrDni);
+    
+    if (isBlocked) {
+      final minutosRestantes = await AuthService.getRemainingBlockMinutes(emailOrDni);
+      setState(() {
+        _generalErrorMessage = 'Cuenta bloqueada temporalmente. Intente nuevamente en $minutosRestantes minutos.';
+      });
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
       final response = await AuthService.signInWithEmail(
-        emailOrDni: _emailOrDniController.text.trim(),
+        emailOrDni: emailOrDni,
         password: _passwordController.text,
       );
       
@@ -74,31 +155,47 @@ class _LoginScreenState extends State<LoginScreen> {
           const SnackBar(
             content: Text('✅ Sesión iniciada correctamente'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
         
-        // ✅ VERIFICAR SI COMPLETÓ ONBOARDING - MÉTODO CORRECTO
+        // Verificar si completó onboarding
         final hasCompleted = await AuthService.hasCompletedOnboarding();
         if (hasCompleted) {
-          // Usuario ya completó onboarding, ir a home
           Navigator.pushReplacementNamed(context, '/main-nav');
         } else {
-          // Primera vez o no completó, ir a selección de rol
           Navigator.pushReplacementNamed(context, '/role-selection');
         }
       }
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
+  // ✅ Registrar intento fallido en la base de datos
+  await AuthService.registerFailedLoginAttempt(emailOrDni);
+  
+  if (mounted) {
+    // El error ya viene procesado desde AuthService
+    final errorMessage = error.toString();
+    
+    setState(() {
+      _generalErrorMessage = errorMessage;
+    });
+    
+    // También mostrar en SnackBar para mayor visibilidad
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(errorMessage),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+} finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  // ✅ NUEVO: Navegación a recuperación de contraseña
+  void _onForgotPassword() {
+    Navigator.pushNamed(context, '/forgot-password');
   }
 
   void _goToCreateAccount() {
@@ -132,7 +229,7 @@ class _LoginScreenState extends State<LoginScreen> {
               color: const Color(0xFFC5414B),
               child: SafeArea(
                 top: false,
-                child: Padding(
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 32.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -149,12 +246,41 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
+                      
+                      // ✅ NUEVO: Mensaje de error general
+                      if (_generalErrorMessage != null)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _generalErrorMessage!,
+                                  style: TextStyle(
+                                    color: Colors.red.shade700,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      
                       CustomTextField(
                         controller: _emailOrDniController,
                         hintText: 'Email o DNI',
                         keyboardType: TextInputType.text,
                         hasError: _emailError,
-                        errorText: _emailError ? 'Campo obligatorio*' : null,
+                        errorText: _emailErrorMessage,
                       ),
                       const SizedBox(height: 16),
                       CustomTextField(
@@ -162,7 +288,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         hintText: 'Contraseña',
                         obscureText: _obscurePassword,
                         hasError: _passwordError,
-                        errorText: _passwordError ? 'Campo obligatorio*' : null,
+                        errorText: _passwordErrorMessage,
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword ? Icons.visibility : Icons.visibility_off,
@@ -175,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () => print('Recuperar contraseña'),
+                          onPressed: _onForgotPassword, // ✅ CORREGIDO
                           child: const Text(
                             '¿Olvidaste tu contraseña?',
                             style: TextStyle(
@@ -204,7 +330,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Expanded(child: Container(height: 1, color: Colors.white.withOpacity(0.4))),
                         ],
                       ),
-                      const Spacer(),
+                      const SizedBox(height: 20),
                       Center(
                         child: RichText(
                           textAlign: TextAlign.center,

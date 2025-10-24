@@ -309,7 +309,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             backgroundColor: Color(0xFFC5414B)
           ),
         );
-        Navigator.pop(context, true);
+        Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/main-nav',
+            (route) => false,
+            arguments: {'initialTab': 0}, // Tab 0 = Navegador de Trabajos
+          );
       }
 
       _limpiarFormulario();

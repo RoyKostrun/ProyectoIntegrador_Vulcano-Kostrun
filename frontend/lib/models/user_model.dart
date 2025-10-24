@@ -37,6 +37,32 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    // ✅ MANEJAR usuario_persona (puede ser lista o map)
+    UserPersona? persona;
+    if (json['usuario_persona'] != null) {
+      if (json['usuario_persona'] is List) {
+        final personaList = json['usuario_persona'] as List;
+        if (personaList.isNotEmpty) {
+          persona = UserPersona.fromJson(personaList.first);
+        }
+      } else if (json['usuario_persona'] is Map<String, dynamic>) {
+        persona = UserPersona.fromJson(json['usuario_persona']);
+      }
+    }
+
+    // ✅ MANEJAR usuario_empresa (puede ser lista o map)
+    UserEmpresa? empresa;
+    if (json['usuario_empresa'] != null) {
+      if (json['usuario_empresa'] is List) {
+        final empresaList = json['usuario_empresa'] as List;
+        if (empresaList.isNotEmpty) {
+          empresa = UserEmpresa.fromJson(empresaList.first);
+        }
+      } else if (json['usuario_empresa'] is Map<String, dynamic>) {
+        empresa = UserEmpresa.fromJson(json['usuario_empresa']);
+      }
+    }
+
     return User(
       idUsuario: json['id_usuario'],
       ubicacionId: json['ubicacion_id'],
@@ -65,12 +91,8 @@ class User {
       updatedAt: json['updated_at'] is String 
           ? DateTime.parse(json['updated_at'])
           : json['updated_at'] as DateTime,
-      persona: json['usuario_persona'] != null 
-          ? UserPersona.fromJson(json['usuario_persona']) 
-          : null,
-      empresa: json['usuario_empresa'] != null 
-          ? UserEmpresa.fromJson(json['usuario_empresa']) 
-          : null,
+      persona: persona,  // ✅ Usar la variable procesada
+      empresa: empresa,  // ✅ Usar la variable procesada
     );
   }
 

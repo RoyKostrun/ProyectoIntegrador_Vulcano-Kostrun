@@ -1,6 +1,5 @@
 // lib/screens/login/role_selection_screen.dart
 import 'package:flutter/material.dart';
-import '../../services/auth_service.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({Key? key}) : super(key: key);
@@ -12,11 +11,11 @@ class RoleSelectionScreen extends StatefulWidget {
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   bool _isLoading = false;
   
-  // ✅ NUEVO: Permitir selección múltiple
+  // ✅ Permitir selección múltiple
   bool _esEmpleador = false;
   bool _esEmpleado = false;
 
-  Future<void> _continuar() async {
+  void _continuar() {
     // Validar que al menos uno esté seleccionado
     if (!_esEmpleador && !_esEmpleado) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -28,44 +27,15 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
-
-    try {
-      // Guardar los roles en la base de datos
-      await AuthService.updateUserRoles(
-        esEmpleador: _esEmpleador,
-        esEmpleado: _esEmpleado,
-      );
-      
-      if (mounted) {
-        final rolesText = _esEmpleador && _esEmpleado
-            ? 'Empleador y Empleado'
-            : _esEmpleador
-                ? 'Empleador'
-                : 'Empleado';
-                
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ Roles seleccionados: $rolesText'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        
-        // Navegar a la selección de rubros
-        Navigator.pushReplacementNamed(context, '/rubros-bubbles');
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    // ✅ PASAR LOS ROLES SIN GUARDAR
+    Navigator.pushReplacementNamed(
+      context, 
+      '/rubros-bubbles',
+      arguments: {
+        'esEmpleador': _esEmpleador,
+        'esEmpleado': _esEmpleado,
+      },
+    );
   }
 
   @override
@@ -86,7 +56,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: GestureDetector(
-                        onTap: _isLoading ? null : () => Navigator.pop(context),
+                        onTap: _isLoading ? null : () {
+                          Navigator.pushReplacementNamed(context, '/account-type-selection');
+                        },
                         child: Container(
                           width: 44,
                           height: 44,
@@ -218,7 +190,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   }
 }
 
-// ✅ NUEVO: Widget para checkbox de rol
+// ✅ Widget para checkbox de rol
 class _RoleCheckbox extends StatelessWidget {
   final String title;
   final String subtitle;

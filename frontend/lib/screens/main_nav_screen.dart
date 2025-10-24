@@ -3,22 +3,30 @@
 import 'package:flutter/material.dart';
 import 'jobs/navegador_trabajos_screen.dart';
 import 'jobs/create_trabajo_screen.dart';
-import 'login/inicio_screen.dart';
+import 'user/user_menu_screen.dart';
 
 class MainNavScreen extends StatefulWidget {
-  const MainNavScreen({Key? key}) : super(key: key);
+  final int initialTab; // ✅ AGREGADO
+  
+  const MainNavScreen({Key? key, this.initialTab = 0}) : super(key: key); // ✅ AGREGADO
 
   @override
   State<MainNavScreen> createState() => _MainNavScreenState();
 }
 
 class _MainNavScreenState extends State<MainNavScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex; // ✅ CAMBIADO de int a late int
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialTab; // ✅ AGREGADO
+  }
 
   final List<Widget> _screens = const [
-    NavegadorTrabajosScreen(), // 🔍
-    CrearTrabajoScreen(),      // ➕
-    InicioScreen(),            // 👤
+    NavegadorTrabajosScreen(), // 🔍 Tab 1
+    CrearTrabajoScreen(),      // ➕ Tab 2
+    UserMenuScreen(),            // 👤 Tab 3
   ];
 
   void _onItemTapped(int index) {
@@ -41,7 +49,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.add_circle_outline),
-            label: 'Agregar',
+            label: 'Crear',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
@@ -52,4 +60,3 @@ class _MainNavScreenState extends State<MainNavScreen> {
     );
   }
 }
-

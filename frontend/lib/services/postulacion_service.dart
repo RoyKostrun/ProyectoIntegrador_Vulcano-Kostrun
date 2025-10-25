@@ -1,5 +1,4 @@
 // lib/services/postulacion_service.dart
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/postulacion_model.dart';
 import 'auth_service.dart';

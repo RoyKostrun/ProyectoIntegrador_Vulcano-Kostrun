@@ -77,6 +77,124 @@ class UserService {
   }
 
   // ==============================================================
+  // 🔹 ACTUALIZAR ES_EMPLEADOR (NUEVO)
+  // ==============================================================
+  /// Actualiza el campo es_empleador del usuario actual
+  Future<void> actualizarEsEmpleador(bool valor) async {
+    try {
+      // Obtener el ID del usuario actual
+      final userId = await AuthService.getCurrentUserId();
+      
+      if (userId == null) {
+        throw Exception('Usuario no autenticado');
+      }
+
+      // Actualizar el campo es_empleador en la tabla usuario_persona
+      final response = await _supabase
+          .from('usuario_persona')
+          .update({
+            'es_empleador': valor,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id_usuario', userId)
+          .select();
+
+      if (response.isEmpty) {
+        throw Exception('No se pudo actualizar el usuario');
+      }
+
+      print('✅ Usuario actualizado: es_empleador = $valor');
+    } catch (e) {
+      print('❌ Error al actualizar es_empleador: $e');
+      rethrow;
+    }
+  }
+
+  // ==============================================================
+  // 🔹 VERIFICAR SI ES EMPLEADOR (NUEVO)
+  // ==============================================================
+  /// Verifica si el usuario actual es empleador
+  Future<bool> esEmpleador() async {
+    try {
+      final userId = await AuthService.getCurrentUserId();
+      
+      if (userId == null) {
+        return false;
+      }
+
+      final response = await _supabase
+          .from('usuario_persona')
+          .select('es_empleador')
+          .eq('id_usuario', userId)
+          .single();
+
+      return response['es_empleador'] == true;
+    } catch (e) {
+      print('❌ Error al verificar es_empleador: $e');
+      return false;
+    }
+  }
+
+  // ==============================================================
+  // 🔹 VERIFICAR SI ES EMPLEADO (NUEVO)
+  // ==============================================================
+  /// Verifica si el usuario actual es empleado
+  Future<bool> esEmpleado() async {
+    try {
+      final userId = await AuthService.getCurrentUserId();
+      
+      if (userId == null) {
+        return false;
+      }
+
+      final response = await _supabase
+          .from('usuario_persona')
+          .select('es_empleado')
+          .eq('id_usuario', userId)
+          .single();
+
+      return response['es_empleado'] == true;
+    } catch (e) {
+      print('❌ Error al verificar es_empleado: $e');
+      return false;
+    }
+  }
+
+  // ==============================================================
+  // 🔹 ACTUALIZAR ES_EMPLEADO (NUEVO)
+  // ==============================================================
+  /// Actualiza el campo es_empleado del usuario actual
+  Future<void> actualizarEsEmpleado(bool valor) async {
+    try {
+      // Obtener el ID del usuario actual
+      final userId = await AuthService.getCurrentUserId();
+      
+      if (userId == null) {
+        throw Exception('Usuario no autenticado');
+      }
+
+      // Actualizar el campo es_empleado en la tabla usuario_persona
+      final response = await _supabase
+          .from('usuario_persona')
+          .update({
+            'es_empleado': valor,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id_usuario', userId)
+          .select();
+
+      if (response.isEmpty) {
+        throw Exception('No se pudo actualizar el usuario');
+      }
+
+      print('✅ Usuario actualizado: es_empleado = $valor');
+    } catch (e) {
+      print('❌ Error al actualizar es_empleado: $e');
+      rethrow;
+    }
+  }
+
+  // ==============================================================
   // 🔹 OBTENER USUARIO ACTUAL (por email de sesión)
   // ==============================================================
   Future<AppUser.User?> obtenerUsuarioActual() async {

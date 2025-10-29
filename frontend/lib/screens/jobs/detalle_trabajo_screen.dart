@@ -4,6 +4,7 @@ import '../../models/trabajo_model.dart';
 import '../../services/trabajo_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/postulacion_service.dart';
+import '../../services/user_service.dart';
 
 class DetalleTrabajoScreen extends StatefulWidget {
   final TrabajoModel trabajo;
@@ -19,9 +20,12 @@ class DetalleTrabajoScreen extends StatefulWidget {
 
 class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   final TrabajoService _trabajoService = TrabajoService();
+  final UserService _userService = UserService();
   bool _isPostulating = false;
   bool _isAlreadyPostulated = false;
-  bool _isEmpleador = false; // ✅ AGREGADO
+  bool _isEmpleador = false;
+  bool _isEmpleado = false;
+  bool _isCheckingEmpleado = true;
   int _cantidadPostulaciones = 0;
 
   @override
@@ -29,11 +33,34 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     super.initState();
     _verificarPostulacion();
     _verificarSiEsEmpleador();
+    _verificarSiEsEmpleado();
+  }
+
+  Future<void> _verificarSiEsEmpleado() async {
+    setState(() => _isCheckingEmpleado = true);
+    try {
+      final resultado = await _userService.esEmpleado();
+      setState(() {
+        _isEmpleado = resultado;
+        _isCheckingEmpleado = false;
+      });
+    } catch (e) {
+      setState(() => _isCheckingEmpleado = false);
+      print('❌ Error al verificar si es empleado: $e');
+    }
+  }
+
+  Future<void> _irAUnirseEmpleados() async {
+    final resultado = await Navigator.pushNamed(context, '/unirse-empleados');
+    
+    if (resultado == true && mounted) {
+      // El usuario se unió exitosamente, recargamos el estado
+      await _verificarSiEsEmpleado();
+    }
   }
 
   Future<void> _verificarPostulacion() async {
     try {
-      // ✅ AHORA SÍ VERIFICAR
       final yaPostulado =
           await PostulacionService.yaEstaPostulado(widget.trabajo.id);
       setState(() => _isAlreadyPostulated = yaPostulado);
@@ -43,7 +70,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   }
 
   Future<void> _postularse({String? mensaje}) async {
-    // ✅ Ahora recibe mensaje
     if (_isAlreadyPostulated) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -59,7 +85,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     try {
       print('🔵 Iniciando postulación...');
 
-      // ✅ PASAR EL MENSAJE AL SERVICIO
       await PostulacionService.postularse(
         trabajoId: widget.trabajo.id,
         mensaje: mensaje?.isNotEmpty == true ? mensaje : null,
@@ -165,7 +190,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Imagen del trabajo (placeholder por ahora)
                   _buildImageSection(),
 
                   Padding(
@@ -173,53 +197,33 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header con título y ubicación
                         _buildHeader(),
-
                         const SizedBox(height: 20),
-
-                        // Stats rápidas
                         _buildQuickStats(),
-
                         const SizedBox(height: 24),
                         const Divider(),
                         const SizedBox(height: 24),
-
-                        // Descripción
                         _buildSection(
                           '📝 Descripción',
                           widget.trabajo.descripcion,
                         ),
-
                         const SizedBox(height: 24),
                         const Divider(),
                         const SizedBox(height: 24),
-
-                        // Fechas y horarios
                         _buildFechasHorarios(),
-
                         const SizedBox(height: 24),
                         const Divider(),
                         const SizedBox(height: 24),
-
-                        // Detalles de pago
                         _buildDetallesPago(),
-
                         const SizedBox(height: 24),
                         const Divider(),
                         const SizedBox(height: 24),
-
-                        // Ubicación
                         _buildUbicacion(),
-
                         const SizedBox(height: 24),
                         const Divider(),
                         const SizedBox(height: 24),
-
-                        // Publicado por
                         _buildPublicadoPor(),
-
-                        const SizedBox(height: 100), // Espacio para botones
+                        const SizedBox(height: 100),
                       ],
                     ),
                   ),
@@ -228,7 +232,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
             ),
           ),
 
-          // Botones de acción fijos
           _buildActionButtons(),
         ],
       ),
@@ -444,11 +447,9 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   }
 
   Widget _buildDetallesPago() {
-    // ✅ Determinar si es pago por persona o total
     final cantidadPersonas = widget.trabajo.cantidadEmpleadosRequeridos ?? 1;
     final esPorPersona = cantidadPersonas > 1;
 
-    // ✅ Construir el texto del salario
     String salarioText;
     if (widget.trabajo.salario != null) {
       final monto = widget.trabajo.salario!.toStringAsFixed(0);
@@ -476,14 +477,12 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
         ),
         const SizedBox(height: 12),
 
-        // ✅ Salario con aclaración
         _buildInfoRow(
           Icons.payments,
           'Salario',
           salarioText,
         ),
 
-        // ✅ Si es para varias personas, mostrar el total estimado
         if (esPorPersona && widget.trabajo.salario != null)
           _buildInfoRow(
             Icons.calculate,
@@ -684,7 +683,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   }
 
   Widget _buildActionButtons() {
-    // ✅ SI ES EMPLEADOR, MOSTRAR BOTÓN DIFERENTE
+    // ✅ SI ES EMPLEADOR DEL TRABAJO, MOSTRAR BOTÓN DE POSTULACIONES
     if (_isEmpleador) {
       return Container(
         padding: const EdgeInsets.all(20),
@@ -724,8 +723,89 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       );
     }
 
-    // ✅ SI NO ES EMPLEADOR, MOSTRAR BOTONES NORMALES
-    return Container(
+    // ✅ LOADING: Verificando si es empleado
+    if (_isCheckingEmpleado) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: const SafeArea(
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    // ✅ SI NO ES EMPLEADO Y NO ES SU TRABAJO, MOSTRAR BOTÓN DE UNIRSE
+    // IMPORTANTE: Solo mostrar si NO es el empleador del trabajo
+    if (!_isEmpleado && !_isEmpleador) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange.shade700),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Únete como empleado para postularte',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: _irAUnirseEmpleados,
+                icon: const Icon(Icons.person_add),
+                label: const Text('UNIRSE COMO EMPLEADO'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFC5414B),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // ✅ SI ES EMPLEADO Y NO ES SU TRABAJO, MOSTRAR BOTONES NORMALES
+    if (_isEmpleado && !_isEmpleador) {
+      return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -740,7 +820,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       child: SafeArea(
         child: Row(
           children: [
-            // Botón de preguntar
             OutlinedButton.icon(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -758,7 +837,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
             
             const SizedBox(width: 12),
             
-            // Botón de postularse
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _isPostulating || _isAlreadyPostulated 
@@ -788,6 +866,10 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
         ),
       ),
     );
+    }
+
+    // ✅ SI ES EMPLEADOR (y potencialmente empleado), no mostrar botones de postulación
+    return const SizedBox.shrink();
   }
 
   String _formatDate(String dateStr) {
@@ -812,8 +894,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       return dateStr;
     }
   }
-
-  // ✅ AGREGAR ESTE MÉTODO en _DetalleTrabajoScreenState
 
   Future<void> _mostrarModalPostulacion() async {
     final TextEditingController mensajeController = TextEditingController();
@@ -849,7 +929,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Info del trabajo
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -880,7 +959,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
 
               const SizedBox(height: 16),
 
-              // Campo de mensaje
               const Text(
                 'Mensaje para el empleador (opcional)',
                 style: TextStyle(
@@ -951,14 +1029,12 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     }
   }
 
-// ✅ AGREGAR ESTE MÉTODO
   Future<void> _verificarSiEsEmpleador() async {
     try {
       final userId = await AuthService.getCurrentUserId();
       final esEmpleador = widget.trabajo.empleadorId == userId;
       
       if (esEmpleador) {
-        // Obtener cantidad de postulaciones
         final postulaciones = await PostulacionService.getPostulacionesDeTrabajo(
           widget.trabajo.id,
         );

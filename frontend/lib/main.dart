@@ -15,6 +15,9 @@ import 'screens/user/perfil_screen.dart';
 import 'screens/user/ubicaciones_screen.dart';
 import 'screens/main_nav_screen.dart';
 import 'screens/jobs/postulaciones_trabajo_screen.dart';
+import 'screens/jobs/create_trabajo_screen.dart';
+import 'screens/user/unirse_empleadores_screen.dart';
+import 'package:changapp_client/screens/user/unirse_empleados_screen.dart';
 
 
 
@@ -70,6 +73,9 @@ class MyApp extends StatelessWidget {
           final trabajoId = ModalRoute.of(context)?.settings.arguments as int;
           return PostulacionesTrabajoScreen(trabajoId: trabajoId);
           },
+        '/crear-trabajo': (context) => const CrearTrabajoScreen(),
+        '/unirse-empleadores': (context) => const UnirseEmpleadoresScreen(),
+        '/unirse-empleados': (context) => const UnirseEmpleadosScreen(),
       },
     );
   }

@@ -20,7 +20,18 @@ class TrabajoService {
             *,
             rubro:id_rubro(id_rubro, nombre),
             ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
-            pago:id_pago(id_pago, monto, metodo, estado)
+            pago:id_pago(id_pago, monto, metodo, estado),
+            empleador_persona:usuario!trabajo_empleador_id_fkey(
+              usuario_persona(
+                nombre,
+                apellido
+              )
+            ),
+            empleador_empresa:usuario!trabajo_empleador_id_fkey(
+              usuario_empresa(
+                nombre_corporativo
+              )
+            )
           ''')
           .neq('empleador_id', idUsuario)
           .eq('estado_publicacion', 'PUBLICADO')
@@ -51,7 +62,18 @@ class TrabajoService {
             *,
             rubro:id_rubro(id_rubro, nombre),
             ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
-            pago:id_pago(id_pago, monto, metodo, estado)
+            pago:id_pago(id_pago, monto, metodo, estado),
+            empleador_persona:usuario!trabajo_empleador_id_fkey(
+              usuario_persona(
+                nombre,
+                apellido
+              )
+            ),
+            empleador_empresa:usuario!trabajo_empleador_id_fkey(
+              usuario_empresa(
+                nombre_corporativo
+              )
+            )
           ''')
           .eq('empleador_id', idUsuario)
           .range(from, to)

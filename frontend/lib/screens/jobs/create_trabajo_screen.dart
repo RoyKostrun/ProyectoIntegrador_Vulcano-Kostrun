@@ -6,6 +6,7 @@ import '../../services/trabajo_service.dart';
 import '../../services/rubro_service.dart';
 import '../../services/ubicacion_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/user_service.dart';
 import '../../components/primary_button.dart';
 
 class CrearTrabajoScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   final _formKey = GlobalKey<FormState>();
   final trabajoService = TrabajoService();
   final ubicacionService = UbicacionService();
+  final userService = UserService();
 
   final tituloController = TextEditingController();
   final descripcionController = TextEditingController();
@@ -29,10 +31,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   bool isLoading = false;
   bool isLoadingUbicaciones = true;
   bool isLoadingRubros = true;
+  bool isCheckingEmpleador = true;
+  bool esEmpleador = false;
   bool sinPrecio = false;
   String? selectedRubro;
   String? selectedMetodoPago;
-  String? periodoPagoSeleccionado; // ✅ NUEVO: POR_HORA, POR_DIA, POR_TRABAJO
+  String? periodoPagoSeleccionado;
   int? cantidadSeleccionada;
   String? ubicacionSeleccionada;
   String? direccionCompleta;
@@ -45,6 +49,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   @override
   void initState() {
     super.initState();
+    _verificarSiEsEmpleador();
     _cargarRubros();
     _cargarUbicaciones();
   }
@@ -57,6 +62,29 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     horarioInicioController.dispose();
     horarioFinController.dispose();
     super.dispose();
+  }
+
+  Future<void> _verificarSiEsEmpleador() async {
+    setState(() => isCheckingEmpleador = true);
+    try {
+      final resultado = await userService.esEmpleador();
+      setState(() {
+        esEmpleador = resultado;
+        isCheckingEmpleador = false;
+      });
+    } catch (e) {
+      setState(() => isCheckingEmpleador = false);
+      print('❌ Error al verificar si es empleador: $e');
+    }
+  }
+
+  Future<void> _irAUnirseEmpleadores() async {
+    final resultado = await Navigator.pushNamed(context, '/unirse-empleadores');
+    
+    if (resultado == true && mounted) {
+      // El usuario se unió exitosamente, recargamos el estado
+      await _verificarSiEsEmpleador();
+    }
   }
 
   Future<void> _cargarRubros() async {
@@ -98,10 +126,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     }
   }
 
-  // ✅ NUEVO: Determinar si es rango de días o día único
   bool get esRangoDias => fechasSeleccionadas.length > 1;
 
-  // ✅ NUEVO: Limpiar periodo de pago cuando cambian las fechas
   void _onFechasChanged() {
     setState(() {
       periodoPagoSeleccionado = null;
@@ -210,7 +236,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     Navigator.pushNamed(context, '/agregar-ubicacion').then((_) => _cargarUbicaciones());
   }
 
-  // ✅ Método helper para obtener el ID del rubro por nombre
   Future<int?> _getIdRubroByName(String nombre) async {
     try {
       final rubros = await RubroService.getRubros();
@@ -240,7 +265,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       return;
     }
 
-    // ✅ VALIDAR PERÍODO DE PAGO
     if (periodoPagoSeleccionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Debe seleccionar el período de pago'), backgroundColor: Colors.red),
@@ -290,7 +314,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         'id_rubro': idRubro,
         'ubicacion_id': int.parse(ubicacionSeleccionada!),
         'metodo_pago': selectedMetodoPago!,
-        'periodo_pago': periodoPagoSeleccionado!, // ✅ NUEVO: POR_HORA, POR_DIA, POR_TRABAJO
+        'periodo_pago': periodoPagoSeleccionado!,
         'estado_publicacion': 'PUBLICADO',
         'urgencia': 'ESTANDAR',
         'fecha_inicio': fechasSeleccionadas.first.toIso8601String().split('T')[0],
@@ -313,7 +337,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             context,
             '/main-nav',
             (route) => false,
-            arguments: {'initialTab': 0}, // Tab 0 = Navegador de Trabajos
+            arguments: {'initialTab': 0},
           );
       }
 
@@ -364,6 +388,109 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Mostrar loading mientras verificamos si es empleador
+    if (isCheckingEmpleador) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFC5414B),
+          elevation: 0,
+          title: const Text('Crear Trabajo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Si NO es empleador, mostrar pantalla de bloqueo
+    if (!esEmpleador) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFC5414B),
+          elevation: 0,
+          title: const Text('Crear Trabajo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFC5414B).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.lock_outline,
+                    size: 80,
+                    color: Color(0xFFC5414B),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const Text(
+                  'Únete a empleadores',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2D3142),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Para crear publicaciones de trabajo necesitas unirte a empleadores',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey.shade700,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _irAUnirseEmpleadores,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFC5414B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 2,
+                    ),
+                    child: const Text(
+                      'UNIRSE A EMPLEADORES',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Volver',
+                    style: TextStyle(
+                      color: Color(0xFFC5414B),
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Si ES empleador, mostrar formulario normal
     if (isLoadingRubros || isLoadingUbicaciones) {
       return Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
@@ -508,181 +635,173 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   }
 
   Widget _buildDetallesTrabajo() {
-  return _buildCard('Detalles del trabajo', Icons.info_outline, [
-    // 1️⃣ PRIMERO: Cantidad de empleados
-    _buildFieldLabel('Cantidad de empleados', required: true),
-    DropdownButtonFormField<int>(
-      value: cantidadSeleccionada,
-      items: List.generate(5, (i) => i + 1).map((n) => DropdownMenuItem(value: n, child: Text('$n'))).toList(),
-      onChanged: (val) => setState(() {
-        cantidadSeleccionada = val;
-        if (!sinPrecio) salarioController.clear();
-      }),
-      decoration: _inputDecoration('Selecciona'),
-      validator: (val) => val == null ? 'Requerido' : null,
-    ),
-    const SizedBox(height: 16),
-    
-    // 2️⃣ SEGUNDO: Precio
-    _buildFieldLabel(
-      cantidadSeleccionada == null 
-          ? 'Precio' 
-          : (cantidadSeleccionada == 1 ? 'Precio del trabajo' : 'Precio por trabajador'), 
-      required: !sinPrecio
-    ),
-    Row(
-      children: [
-        Expanded(
-          child: TextFormField(
-            controller: salarioController,
-            enabled: cantidadSeleccionada != null && !sinPrecio,
-            keyboardType: TextInputType.number,
-            validator: _validarSalario,
-            decoration: _inputDecoration(
-              cantidadSeleccionada == null 
-                  ? 'Selecciona cantidad primero' 
-                  : (periodoPagoSeleccionado == null 
-                      ? 'Selecciona período abajo'
-                      : _getSalarioHint())
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        ElevatedButton(
-          onPressed: () => setState(() {
-            sinPrecio = !sinPrecio;
-            if (sinPrecio) salarioController.clear();
-          }),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: sinPrecio ? const Color(0xFFC5414B) : Colors.grey.shade300,
-            foregroundColor: sinPrecio ? Colors.white : Colors.black87,
-          ),
-          child: Text(sinPrecio ? 'Con precio' : 'Sin precio'),
-        ),
-      ],
-    ),
-    const SizedBox(height: 16),
-    
-    // 3️⃣ TERCERO: Período de pago (solo si hay fechas seleccionadas)
-    if (fechasSeleccionadas.isNotEmpty) ...[
-      _buildFieldLabel('Período de pago', required: true),
-      _buildPeriodoPagoSelector(),
+    return _buildCard('Detalles del trabajo', Icons.info_outline, [
+      _buildFieldLabel('Cantidad de empleados', required: true),
+      DropdownButtonFormField<int>(
+        value: cantidadSeleccionada,
+        items: List.generate(5, (i) => i + 1).map((n) => DropdownMenuItem(value: n, child: Text('$n'))).toList(),
+        onChanged: (val) => setState(() {
+          cantidadSeleccionada = val;
+          if (!sinPrecio) salarioController.clear();
+        }),
+        decoration: _inputDecoration('Selecciona'),
+        validator: (val) => val == null ? 'Requerido' : null,
+      ),
       const SizedBox(height: 16),
-    ],
-    
-    // 4️⃣ Ubicación
-    _buildFieldLabel('Ubicación', required: true),
-    _buildUbicacionDropdown(),
-    const SizedBox(height: 16),
-    
-    // 5️⃣ Método de pago
-    _buildFieldLabel('Método de pago', required: true),
-    DropdownButtonFormField<String>(
-      value: selectedMetodoPago,
-      items: metodosPago.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-      onChanged: (val) => setState(() => selectedMetodoPago = val),
-      decoration: _inputDecoration('Selecciona'),
-      validator: (val) => val == null ? 'Requerido' : null,
-    ),
-  ]);
-}
-
-  // ✅ NUEVO: Widget para seleccionar período de pago
-  Widget _buildPeriodoPagoSelector() {
-  if (esRangoDias) {
-    // Rango de días: POR_HORA o POR_DIA
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue.shade200),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Has seleccionado ${fechasSeleccionadas.length} días de trabajo',
-                  style: TextStyle(fontSize: 13, color: Colors.blue.shade900),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildPeriodoButton(
-                'Por Hora',
-                'POR_HORA', // ✅ Correcto
-                Icons.access_time,
+      
+      _buildFieldLabel(
+        cantidadSeleccionada == null 
+            ? 'Precio' 
+            : (cantidadSeleccionada == 1 ? 'Precio del trabajo' : 'Precio por trabajador'), 
+        required: !sinPrecio
+      ),
+      Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: salarioController,
+              enabled: cantidadSeleccionada != null && !sinPrecio,
+              keyboardType: TextInputType.number,
+              validator: _validarSalario,
+              decoration: _inputDecoration(
+                cantidadSeleccionada == null 
+                    ? 'Selecciona cantidad primero' 
+                    : (periodoPagoSeleccionado == null 
+                        ? 'Selecciona período abajo'
+                        : _getSalarioHint())
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildPeriodoButton(
-                'Por Día',
-                'POR_DIA', // ✅ Correcto
-                Icons.calendar_today,
-              ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () => setState(() {
+              sinPrecio = !sinPrecio;
+              if (sinPrecio) salarioController.clear();
+            }),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: sinPrecio ? const Color(0xFFC5414B) : Colors.grey.shade300,
+              foregroundColor: sinPrecio ? Colors.white : Colors.black87,
             ),
-          ],
-        ),
+            child: Text(sinPrecio ? 'Con precio' : 'Sin precio'),
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      
+      if (fechasSeleccionadas.isNotEmpty) ...[
+        _buildFieldLabel('Período de pago', required: true),
+        _buildPeriodoPagoSelector(),
+        const SizedBox(height: 16),
       ],
-    );
-  } else {
-    // Un solo día: POR_HORA o POR_TRABAJO (jornada completa)
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.green.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.green.shade200),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.green.shade700, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Trabajo de un solo día',
-                  style: TextStyle(fontSize: 13, color: Colors.green.shade900),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildPeriodoButton(
-                'Por Hora',
-                'POR_HORA', // ✅ Correcto
-                Icons.access_time,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildPeriodoButton(
-                'Trabajo Completo',
-                'POR_TRABAJO', // ✅ CORREGIDO: antes decía POR_TRABAJO
-                Icons.wb_sunny,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+      
+      _buildFieldLabel('Ubicación', required: true),
+      _buildUbicacionDropdown(),
+      const SizedBox(height: 16),
+      
+      _buildFieldLabel('Método de pago', required: true),
+      DropdownButtonFormField<String>(
+        value: selectedMetodoPago,
+        items: metodosPago.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+        onChanged: (val) => setState(() => selectedMetodoPago = val),
+        decoration: _inputDecoration('Selecciona'),
+        validator: (val) => val == null ? 'Requerido' : null,
+      ),
+    ]);
   }
-}
+
+  Widget _buildPeriodoPagoSelector() {
+    if (esRangoDias) {
+      return Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Has seleccionado ${fechasSeleccionadas.length} días de trabajo',
+                    style: TextStyle(fontSize: 13, color: Colors.blue.shade900),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPeriodoButton(
+                  'Por Hora',
+                  'POR_HORA',
+                  Icons.access_time,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildPeriodoButton(
+                  'Por Día',
+                  'POR_DIA',
+                  Icons.calendar_today,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    } else {
+      return Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.green.shade700, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Trabajo de un solo día',
+                    style: TextStyle(fontSize: 13, color: Colors.green.shade900),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPeriodoButton(
+                  'Por Hora',
+                  'POR_HORA',
+                  Icons.access_time,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildPeriodoButton(
+                  'Trabajo Completo',
+                  'POR_TRABAJO',
+                  Icons.wb_sunny,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+  }
  
   Widget _buildPeriodoButton(String label, String value, IconData icon) {
     final isSelected = periodoPagoSeleccionado == value;
@@ -725,20 +844,20 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   }
 
   String _getSalarioHint() {
-  if (periodoPagoSeleccionado == null) {
-    return 'Selecciona período primero';
+    if (periodoPagoSeleccionado == null) {
+      return 'Selecciona período primero';
+    }
+    switch (periodoPagoSeleccionado) {
+      case 'POR_HORA':
+        return 'Precio por hora en \$';
+      case 'POR_DIA':
+        return 'Precio por día en \$';
+      case 'POR_TRABAJO':
+        return 'Precio por trabajo completo en \$';
+      default:
+        return 'Precio en \$';
+    }
   }
-  switch (periodoPagoSeleccionado) {
-    case 'POR_HORA':
-      return 'Precio por hora en \$';
-    case 'POR_DIA':
-      return 'Precio por día en \$';
-    case 'POR_TRABAJO': // ✅ CORREGIDO
-      return 'Precio por trabajo completo en \$';
-    default:
-      return 'Precio en \$';
-  }
-}
 
   Widget _buildCard(String titulo, IconData icono, List<Widget> children) {
     return Container(

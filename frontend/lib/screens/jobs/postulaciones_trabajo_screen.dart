@@ -71,6 +71,15 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
         .length;
   }
 
+  // ✅ NUEVO: Navegar al perfil compartido
+  void _verPerfil(int userId) {
+    Navigator.pushNamed(
+      context,
+      '/perfil-compartido',
+      arguments: userId,
+    );
+  }
+
   Future<void> _aceptarPostulacion(PostulacionModel postulacion) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -314,23 +323,26 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Avatar
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: const Color(0xFFC5414B),
-                  backgroundImage: postulante?.fotoPerfil != null
-                      ? NetworkImage(postulante!.fotoPerfil!)
-                      : null,
-                  child: postulante?.fotoPerfil == null
-                      ? Text(
-                          postulante?.getIniciales() ?? 'U',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
+                // ✅ Avatar clickeable
+                GestureDetector(
+                  onTap: () => _verPerfil(postulacion.postulanteId),
+                  child: CircleAvatar(
+                    radius: 30,
+                    backgroundColor: const Color(0xFFC5414B),
+                    backgroundImage: postulante?.fotoPerfil != null
+                        ? NetworkImage(postulante!.fotoPerfil!)
+                        : null,
+                    child: postulante?.fotoPerfil == null
+                        ? Text(
+                            postulante?.getIniciales() ?? 'U',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 
@@ -339,17 +351,21 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        postulante?.nombre ?? 'Usuario',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      // ✅ Nombre clickeable
+                      GestureDetector(
+                        onTap: () => _verPerfil(postulacion.postulanteId),
+                        child: Text(
+                          postulante?.nombre ?? 'Usuario',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 4),
-                      if (postulante?.puntajePromedio != null)
-                        Row(
-                          children: [
+                      Row(
+                        children: [
+                          if (postulante?.puntajePromedio != null) ...[
                             const Icon(Icons.star, size: 16, color: Colors.amber),
                             const SizedBox(width: 4),
                             Text(
@@ -359,8 +375,22 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
                                 color: Colors.grey[600],
                               ),
                             ),
+                            const SizedBox(width: 12),
                           ],
-                        ),
+                          // ✅ NUEVO: Botón Ver perfil
+                          TextButton.icon(
+                            onPressed: () => _verPerfil(postulacion.postulanteId),
+                            icon: const Icon(Icons.person, size: 14),
+                            label: const Text('Ver perfil'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFFC5414B),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),

@@ -190,3 +190,5 @@ class TrabajoService {
     }
   }
 }
+
+//queda pendiente arreglar detalle trabajo. 

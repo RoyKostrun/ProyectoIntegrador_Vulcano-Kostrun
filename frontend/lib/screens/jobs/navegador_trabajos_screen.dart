@@ -2,14 +2,17 @@
 import 'package:flutter/material.dart';
 import '../../models/trabajo_model.dart';
 import '../../services/trabajo_service.dart';
-import 'detalle_trabajo_screen.dart';
+import 'detalle_trabajo_screen.dart'; // ✅ Para trabajos AJENOS
+import 'detalle_trabajo_propio_screen.dart'; // ✅ Para trabajos PROPIOS
 import '../../services/postulacion_service.dart';
+import '../main_nav_screen.dart';
 
 class NavegadorTrabajosScreen extends StatefulWidget {
   const NavegadorTrabajosScreen({Key? key}) : super(key: key);
 
   @override
-  State<NavegadorTrabajosScreen> createState() => _NavegadorTrabajosScreenState();
+  State<NavegadorTrabajosScreen> createState() =>
+      _NavegadorTrabajosScreenState();
 }
 
 class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
@@ -30,10 +33,10 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
       isLoading = true;
       errorMessage = null;
     });
-    
+
     try {
       List<TrabajoModel> result;
-      
+
       if (mostrandoMisTrabajos) {
         // ✅ CORREGIDO: Cargar MIS trabajos
         result = await servicio.getMisTrabajos(from: 0, to: 19);
@@ -43,7 +46,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
         result = await servicio.getTrabajos(from: 0, to: 19);
         print('📋 Cargados ${result.length} trabajos de otros usuarios');
       }
-      
+
       setState(() {
         trabajos = result;
         isLoading = false;
@@ -54,7 +57,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
         errorMessage = e.toString();
         isLoading = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -82,7 +85,8 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
     }
 
     try {
-      final puestos = await PostulacionService.obtenerPuestosDisponibles(trabajoId);
+      final puestos =
+          await PostulacionService.obtenerPuestosDisponibles(trabajoId);
       _puestosCache[trabajoId] = puestos;
       return puestos;
     } catch (e) {
@@ -153,10 +157,6 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
@@ -168,7 +168,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
         children: [
           // ✅ Botón Toggle mejorado
           _buildToggleButton(),
-          
+
           // Contenido de la lista
           Expanded(
             child: _buildContent(),
@@ -196,9 +196,8 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
-                  color: !mostrandoMisTrabajos 
-                      ? Colors.white 
-                      : Colors.transparent,
+                  color:
+                      !mostrandoMisTrabajos ? Colors.white : Colors.transparent,
                   borderRadius: BorderRadius.circular(50),
                   boxShadow: !mostrandoMisTrabajos
                       ? [
@@ -216,8 +215,8 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: !mostrandoMisTrabajos 
-                          ? Colors.black 
+                      color: !mostrandoMisTrabajos
+                          ? Colors.black
                           : Colors.grey.shade600,
                     ),
                   ),
@@ -234,8 +233,8 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
-                  color: mostrandoMisTrabajos 
-                      ? Colors.grey.shade700 
+                  color: mostrandoMisTrabajos
+                      ? Colors.grey.shade700
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(50),
                 ),
@@ -245,8 +244,8 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: mostrandoMisTrabajos 
-                          ? Colors.white 
+                      color: mostrandoMisTrabajos
+                          ? Colors.white
                           : Colors.grey.shade600,
                     ),
                   ),
@@ -325,8 +324,8 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              mostrandoMisTrabajos 
-                  ? 'No tienes trabajos publicados' 
+              mostrandoMisTrabajos
+                  ? 'No tienes trabajos publicados'
                   : 'No hay trabajos disponibles',
               style: const TextStyle(
                 fontSize: 16,
@@ -368,12 +367,24 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
   Widget _buildTrabajoCard(TrabajoModel trabajo) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DetalleTrabajoScreen(trabajo: trabajo),
-          ),
-        );
+        // ✅✅✅ NAVEGACIÓN CONDICIONAL CORREGIDA ✅✅✅
+        if (mostrandoMisTrabajos) {
+          // 🟢 Si estamos en "MIS TRABAJOS" → ir a detalle PROPIO
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DetalleTrabajoPropio(trabajo: trabajo),
+            ),
+          );
+        } else {
+          // 🔵 Si estamos en "EXPLORAR" → ir a detalle AJENO
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DetalleTrabajoScreen(trabajo: trabajo),
+            ),
+          );
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -393,10 +404,10 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
           children: [
             // ✅ Header con usuario que publicó
             _buildCardHeader(trabajo),
-            
+
             // ✅ Imagen o placeholder
             _buildCardImage(trabajo),
-            
+
             // ✅ Contenido del card
             Padding(
               padding: const EdgeInsets.all(16),
@@ -416,15 +427,15 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    trabajo.nombreRubro,
+                    trabajo.nombreRubro ?? '',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Descripción
                   Text(
                     trabajo.descripcion,
@@ -436,20 +447,21 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                       height: 1.4,
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // ✅ Fechas y horarios
-                  if (trabajo.fechaInicio != null || trabajo.horarioInicio != null)
+                  if (trabajo.fechaInicio != null ||
+                      trabajo.horarioInicio != null)
                     _buildFechasHorarios(trabajo),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // ✅ Salario
                   _buildSalario(trabajo),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // ✅ Puestos disponibles (emojis)
                   _buildPuestosDisponibles(trabajo),
                 ],
@@ -526,7 +538,8 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.priority_high, size: 12, color: Colors.red.shade700),
+                  Icon(Icons.priority_high,
+                      size: 12, color: Colors.red.shade700),
                   const SizedBox(width: 4),
                   Text(
                     'Urgente',
@@ -612,7 +625,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
   Widget _buildSalario(TrabajoModel trabajo) {
     final cantidadPersonas = trabajo.cantidadEmpleadosRequeridos ?? 1;
     final esPorPersona = cantidadPersonas > 1;
-    
+
     return Row(
       children: [
         Icon(Icons.payments, size: 18, color: Colors.green[700]),
@@ -661,7 +674,8 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
             color: disponibles > 0 ? Colors.green.shade50 : Colors.red.shade50,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: disponibles > 0 ? Colors.green.shade200 : Colors.red.shade200,
+              color:
+                  disponibles > 0 ? Colors.green.shade200 : Colors.red.shade200,
             ),
           ),
           child: Row(
@@ -669,7 +683,9 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
               Icon(
                 Icons.people,
                 size: 16,
-                color: disponibles > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                color: disponibles > 0
+                    ? Colors.green.shade700
+                    : Colors.red.shade700,
               ),
               const SizedBox(width: 8),
               Text(
@@ -677,7 +693,9 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: disponibles > 0 ? Colors.green.shade900 : Colors.red.shade900,
+                  color: disponibles > 0
+                      ? Colors.green.shade900
+                      : Colors.red.shade900,
                 ),
               ),
               const SizedBox(width: 4),
@@ -698,7 +716,9 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: disponibles > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                  color: disponibles > 0
+                      ? Colors.green.shade700
+                      : Colors.red.shade700,
                 ),
               ),
             ],
@@ -712,27 +732,30 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
   // HELPERS
   // ========================================
 
-  String _formatDateRange(String? inicio, String? fin) {
-    if (inicio == null) return 'Fecha no especificada';
-    
-    try {
-      final fechaInicio = DateTime.parse(inicio);
-      final fechaFin = fin != null ? DateTime.parse(fin) : null;
-      
-      final months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
-                      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-      
-      String inicioStr = '${fechaInicio.day} ${months[fechaInicio.month - 1]}';
-      
-      if (fechaFin != null && fechaFin != fechaInicio) {
-        String finStr = '${fechaFin.day} ${months[fechaFin.month - 1]}';
-        return '$inicioStr - $finStr';
-      }
-      
-      return inicioStr;
-    } catch (e) {
-      return inicio;
+  String _formatDateRange(DateTime inicio, DateTime? fin) {
+    final months = [
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic'
+    ];
+
+    String inicioStr = '${inicio.day} ${months[inicio.month - 1]}';
+
+    if (fin != null && fin != inicio) {
+      String finStr = '${fin.day} ${months[fin.month - 1]}';
+      return '$inicioStr - $finStr';
     }
+
+    return inicioStr;
   }
 
   String _getPeriodoLabel(String? periodo) {

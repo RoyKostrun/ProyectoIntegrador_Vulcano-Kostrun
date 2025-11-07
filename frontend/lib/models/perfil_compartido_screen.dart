@@ -113,134 +113,155 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
             ),
     );
   }
-
   Widget _buildHeader() {
-    if (_perfilData == null) return const SizedBox();
+      if (_perfilData == null) return const SizedBox();
 
-    final nombre = _perfilData!['nombre'] ?? '';
-    final apellido = _perfilData!['apellido'] ?? '';
-    final username = _perfilData!['username'] ?? '';
-    final fotoPerfil = _perfilData!['foto_perfil_url'];
-    final rating = (_perfilData!['puntaje_promedio'] ?? 0.0).toDouble();
-    final trabajosRealizados = _perfilData!['cantidad_trabajos_realizados'] ?? 0;
+      final nombre = (_perfilData!['nombre'] ?? '').toString().trim();
+      final apellido = (_perfilData!['apellido'] ?? '').toString().trim();
+      final username = (_perfilData!['username'] ?? '').toString();
+      final fotoPerfil = _perfilData!['foto_perfil_url'];
+      final rating = (_perfilData!['puntaje_promedio'] ?? 0.0).toDouble();
+      final trabajosRealizados = _perfilData!['cantidad_trabajos_realizados'] ?? 0;
 
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFC5414B), Color(0xFFE85A4F)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+      // ✅ Helper para obtener iniciales de forma segura
+      String getIniciales() {
+        if (nombre.isEmpty && apellido.isEmpty) return '?';
+        if (nombre.isEmpty) return apellido.isNotEmpty ? apellido[0].toUpperCase() : '?';
+        if (apellido.isEmpty) return nombre.isNotEmpty ? nombre[0].toUpperCase() : '?';
+        return '${nombre[0]}${apellido[0]}'.toUpperCase();
+      }
+
+      // ✅ Helper para obtener nombre completo
+      String getNombreCompleto() {
+        if (nombre.isEmpty && apellido.isEmpty) return 'Usuario';
+        return '$nombre $apellido'.trim();
+      }
+
+      return Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFC5414B), Color(0xFFE85A4F)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 32),
-          
-          // Foto de perfil
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 4),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 60,
-              backgroundColor: Colors.white,
-              backgroundImage: fotoPerfil != null
-                  ? NetworkImage(fotoPerfil)
-                  : null,
-              child: fotoPerfil == null
-                  ? Text(
-                      '${nombre[0]}${apellido[0]}'.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFC5414B),
-                      ),
-                    )
-                  : null,
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Nombre completo
-          Text(
-            '$nombre $apellido',
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
-          // Username
-          Text(
-            '@$username',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.white.withOpacity(0.9),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Rating y trabajos
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.star, color: Colors.amber, size: 20),
-                const SizedBox(width: 6),
-                Text(
-                  rating.toStringAsFixed(1),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+        child: Column(
+          children: [
+            const SizedBox(height: 32),
+            
+            // Foto de perfil
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 4),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Container(
-                  width: 1,
-                  height: 20,
-                  color: Colors.white.withOpacity(0.5),
-                ),
-                const SizedBox(width: 16),
-                const Icon(Icons.work_outline, color: Colors.white, size: 20),
-                const SizedBox(width: 6),
-                Text(
-                  '$trabajosRealizados trabajos',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+                ],
+              ),
+              child: CircleAvatar(
+                radius: 60,
+                backgroundColor: Colors.white,
+                backgroundImage: fotoPerfil != null
+                    ? NetworkImage(fotoPerfil)
+                    : null,
+                child: fotoPerfil == null
+                    ? Text(
+                        getIniciales(),  // ✅ Usa el helper seguro
+                        style: const TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFC5414B),
+                        ),
+                      )
+                    : null,
+              ),
             ),
-          ),
 
-          const SizedBox(height: 32),
-        ],
-      ),
-    );
-  }
+            const SizedBox(height: 16),
+
+            // Nombre completo
+            Text(
+              getNombreCompleto(),  // ✅ Usa el helper seguro
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+
+            const SizedBox(height: 4),
+
+            // Username (solo mostrar si existe)
+            if (username.isNotEmpty)
+              Text(
+                '@$username',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white.withOpacity(0.9),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+
+            const SizedBox(height: 16),
+
+            // Rating y trabajos
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 20),
+                  const SizedBox(width: 6),
+                  Text(
+                    rating.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    ' (${_resenias.length} reseñas)',  // ✅ Muestra cantidad de reseñas
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Container(
+                    width: 1,
+                    height: 20,
+                    color: Colors.white.withOpacity(0.5),
+                  ),
+                  const SizedBox(width: 16),
+                  const Icon(Icons.work_outline, color: Colors.white, size: 20),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$trabajosRealizados trabajos',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 32),
+          ],
+        ),
+      );
+    }
 
   Widget _buildEstadisticas() {
     final trabajosCompletados = _estadisticas['trabajos_completados'] ?? 0;

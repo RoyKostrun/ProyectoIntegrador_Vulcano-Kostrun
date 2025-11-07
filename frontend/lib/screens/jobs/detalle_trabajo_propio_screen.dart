@@ -1,113 +1,47 @@
-// lib/screens/jobs/detalle_trabajo_screen.dart
-// 🔵 PANTALLA PARA TRABAJOS DE OTROS USUARIOS (AJENOS)
+// lib/screens/jobs/detalle_trabajo_propio_screen.dart
+// 🟢 PANTALLA PARA TUS TRABAJOS PUBLICADOS (PROPIOS)
 
 import 'package:flutter/material.dart';
 import '../../models/trabajo_model.dart';
 import '../../services/postulacion_service.dart';
-import '../../services/user_service.dart';
+import '../../theme/estado_trabajo_style.dart';
 
-class DetalleTrabajoScreen extends StatefulWidget {
+
+class DetalleTrabajoPropio extends StatefulWidget {
   final TrabajoModel trabajo;
 
-  const DetalleTrabajoScreen({
+  const DetalleTrabajoPropio({
     Key? key,
     required this.trabajo,
   }) : super(key: key);
 
   @override
-  State<DetalleTrabajoScreen> createState() => _DetalleTrabajoScreenState();
+  State<DetalleTrabajoPropio> createState() => _DetalleTrabajoPropioState();
 }
 
-class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
-  final UserService _userService = UserService();
-  bool _isPostulating = false;
-  bool _isAlreadyPostulated = false;
-  bool _isEmpleado = false;
-  bool _isCheckingEmpleado = true;
+class _DetalleTrabajoPropioState extends State<DetalleTrabajoPropio> {
+  int _cantidadPostulaciones = 0;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _verificarPostulacion();
-    _verificarSiEsEmpleado();
+    _cargarPostulaciones();
   }
 
-  Future<void> _verificarSiEsEmpleado() async {
-    setState(() => _isCheckingEmpleado = true);
+  Future<void> _cargarPostulaciones() async {
+    setState(() => _isLoading = true);
     try {
-      final resultado = await _userService.esEmpleado();
+      final postulaciones = await PostulacionService.getPostulacionesDeTrabajo(
+        widget.trabajo.id,
+      );
       setState(() {
-        _isEmpleado = resultado;
-        _isCheckingEmpleado = false;
+        _cantidadPostulaciones = postulaciones.length;
+        _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isCheckingEmpleado = false);
-      print('❌ Error al verificar si es empleado: $e');
-    }
-  }
-
-  Future<void> _irAUnirseEmpleados() async {
-    final resultado = await Navigator.pushNamed(context, '/unirse-empleados');
-
-    if (resultado == true && mounted) {
-      await _verificarSiEsEmpleado();
-    }
-  }
-
-  Future<void> _verificarPostulacion() async {
-    try {
-      final yaPostulado =
-          await PostulacionService.yaEstaPostulado(widget.trabajo.id);
-      setState(() => _isAlreadyPostulated = yaPostulado);
-    } catch (e) {
-      print('Error verificando postulación: $e');
-    }
-  }
-
-  Future<void> _postularse({String? mensaje}) async {
-    if (_isAlreadyPostulated) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ya te postulaste a este trabajo'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isPostulating = true);
-
-    try {
-      await PostulacionService.postularse(
-        trabajoId: widget.trabajo.id,
-        mensaje: mensaje?.isNotEmpty == true ? mensaje : null,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ ¡Te postulaste exitosamente!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-
-        setState(() => _isAlreadyPostulated = true);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isPostulating = false);
-      }
+      print('Error cargando postulaciones: $e');
+      setState(() => _isLoading = false);
     }
   }
 
@@ -136,30 +70,38 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Detalle del Trabajo',
+          'Mi Trabajo',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.white),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Editar próximamente')),
+              );
+            },
+          ),
           PopupMenuButton(
             icon: const Icon(Icons.more_vert, color: Colors.white),
             itemBuilder: (context) => [
               const PopupMenuItem(
-                value: 'share',
+                value: 'pause',
                 child: Row(
                   children: [
-                    Icon(Icons.share),
+                    Icon(Icons.pause_circle),
                     SizedBox(width: 8),
-                    Text('Compartir'),
+                    Text('Pausar publicación'),
                   ],
                 ),
               ),
               const PopupMenuItem(
-                value: 'report',
+                value: 'delete',
                 child: Row(
                   children: [
-                    Icon(Icons.flag, color: Colors.red),
+                    Icon(Icons.delete, color: Colors.red),
                     SizedBox(width: 8),
-                    Text('Reportar'),
+                    Text('Eliminar', style: TextStyle(color: Colors.red)),
                   ],
                 ),
               ),
@@ -207,10 +149,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                         const Divider(),
                         const SizedBox(height: 24),
                         _buildUbicacion(),
-                        const SizedBox(height: 24),
-                        const Divider(),
-                        const SizedBox(height: 24),
-                        _buildPublicadoPor(),
                         const SizedBox(height: 100),
                       ],
                     ),
@@ -257,16 +195,49 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   }
 
   Widget _buildHeader() {
+    
+    final style = EstadoTrabajoStyle.fromEstado(widget.trabajo.estadoPublicacion);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          widget.trabajo.titulo,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.trabajo.titulo,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: style.color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: style.color.withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(widget.trabajo.estadoIcono,
+                      size: 16, color: style.color),
+                  const SizedBox(width: 4),
+                  Text(
+                    widget.trabajo.estadoTexto,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: style.color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         Row(
@@ -543,88 +514,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     );
   }
 
-  Widget _buildPublicadoPor() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '👤 Publicado por',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundColor: const Color(0xFFC5414B),
-                child: Text(
-                  widget.trabajo.nombreEmpleador
-                          ?.substring(0, 1)
-                          .toUpperCase() ??
-                      'E',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.trabajo.nombreEmpleador ?? 'Empleador',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.star, size: 16, color: Colors.amber),
-                        const SizedBox(width: 4),
-                        Text(
-                          '4.5 • 12 trabajos',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.arrow_forward_ios, size: 16),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Ver perfil próximamente')),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -661,10 +550,9 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     );
   }
 
-  // 🔵 BOTONES DE ACCIÓN PARA TRABAJOS AJENOS
+  // 🟢 BOTONES DE ACCIÓN PARA TRABAJOS PROPIOS
   Widget _buildActionButtons() {
-    // Loading mientras verifica
-    if (_isCheckingEmpleado) {
+    if (_isLoading) {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -687,66 +575,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       );
     }
 
-    // Si NO es empleado, mostrar botón de unirse
-    if (!_isEmpleado) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.orange.shade700),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Únete como empleado para postularte',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
-                onPressed: _irAUnirseEmpleados,
-                icon: const Icon(Icons.person_add),
-                label: const Text('UNIRSE COMO EMPLEADO'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFC5414B),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Si ES empleado, mostrar botones de postulación
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -760,47 +588,97 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
         ],
       ),
       child: SafeArea(
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            OutlinedButton.icon(
+            // Indicador de postulaciones
+            if (_cantidadPostulaciones > 0)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFC5414B).withOpacity(0.1),
+                      const Color(0xFFE85A4F).withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFC5414B).withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFC5414B),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$_cantidadPostulaciones',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _cantidadPostulaciones == 1
+                                ? 'Nueva postulación'
+                                : 'Nuevas postulaciones',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          Text(
+                            'Personas interesadas en tu trabajo',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: Color(0xFFC5414B),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Botón principal
+            ElevatedButton.icon(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chat próximamente')),
+                Navigator.pushNamed(
+                  context,
+                  '/postulaciones-trabajo',
+                  arguments: widget.trabajo.id,
                 );
               },
-              icon: const Icon(Icons.chat_bubble_outline),
-              label: const Text('Preguntar'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFC5414B),
-                side: const BorderSide(color: Color(0xFFC5414B)),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+              icon: const Icon(Icons.people),
+              label: Text(
+                _cantidadPostulaciones > 0
+                    ? 'Ver postulaciones ($_cantidadPostulaciones)'
+                    : 'Sin postulaciones aún',
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _isPostulating || _isAlreadyPostulated
-                    ? null
-                    : _mostrarModalPostulacion,
-                icon: Icon(
-                  _isAlreadyPostulated ? Icons.check_circle : Icons.work,
-                ),
-                label: Text(
-                  _isAlreadyPostulated
-                      ? 'Ya postulado'
-                      : _isPostulating
-                          ? 'Postulando...'
-                          : '¡Me apunto!',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isAlreadyPostulated
-                      ? Colors.green
-                      : const Color(0xFFC5414B),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  disabledBackgroundColor: Colors.grey,
-                ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFC5414B),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                minimumSize: const Size(double.infinity, 50),
               ),
             ),
           ],
@@ -825,135 +703,5 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       'Dic'
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
-
-  Future<void> _mostrarModalPostulacion() async {
-    final TextEditingController mensajeController = TextEditingController();
-
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFC5414B).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.work_outline,
-                color: Color(0xFFC5414B),
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                '¿Postularte a este trabajo?',
-                style: TextStyle(fontSize: 18),
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.trabajo.titulo,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.trabajo.nombreRubro ?? '',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Mensaje para el empleador (opcional)',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: mensajeController,
-                maxLines: 4,
-                maxLength: 500,
-                decoration: InputDecoration(
-                  hintText: 'Ej: Tengo 5 años de experiencia en el rubro...',
-                  hintStyle: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[400],
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  contentPadding: const EdgeInsets.all(12),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      'Este mensaje será visible para el empleador',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(context, true),
-            icon: const Icon(Icons.check),
-            label: const Text('Postularme'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFC5414B),
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmar == true && mounted) {
-      await _postularse(mensaje: mensajeController.text.trim());
-    }
   }
 }

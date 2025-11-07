@@ -34,7 +34,7 @@ class PostulacionModel {
 
   factory PostulacionModel.fromJson(Map<String, dynamic> json) {
     return PostulacionModel(
-      id: json['id_postulacion'] ?? 0, // ✅ CORREGIDO
+      id: json['id_postulacion'] ?? 0,
       trabajoId: json['trabajo_id'] ?? 0,
       postulanteId: json['postulante_id'] ?? 0,
       estado: json['estado'] ?? 'PENDIENTE',
@@ -66,7 +66,7 @@ class PostulacionModel {
 
   Map<String, dynamic> toJson() {
     return {
-      'id_postulacion': id, // ✅ CORREGIDO
+      'id_postulacion': id,
       'trabajo_id': trabajoId,
       'postulante_id': postulanteId,
       'estado': estado,
@@ -116,7 +116,7 @@ class PostulacionModel {
   PostulacionModel copyWith({
     int? id,
     int? trabajoId,
-    int? postulanteId, // ✅ CORREGIDO: nombre del parámetro
+    int? postulanteId,
     String? estado,
     String? mensaje,
     double? ofertaPago,
@@ -131,7 +131,7 @@ class PostulacionModel {
     return PostulacionModel(
       id: id ?? this.id,
       trabajoId: trabajoId ?? this.trabajoId,
-      postulanteId: postulanteId ?? this.postulanteId, // ✅ CORREGIDO
+      postulanteId: postulanteId ?? this.postulanteId,
       estado: estado ?? this.estado,
       mensaje: mensaje ?? this.mensaje,
       ofertaPago: ofertaPago ?? this.ofertaPago,
@@ -217,22 +217,41 @@ class PostulanteInfo {
     required this.esEmpresa,
   });
 
-  factory PostulanteInfo.fromJson(Map<String, dynamic> json) {
-    final esEmpresa = json['usuario_empresa'] != null;
-    
-    String nombre;
+    factory PostulanteInfo.fromJson(Map<String, dynamic> json) {
+    String nombre = 'Usuario';
     String? fotoPerfil;
     double? puntaje;
+    bool esEmpresa = false;
     
-    if (esEmpresa) {
-      nombre = json['usuario_empresa']['nombre_corporativo'] ?? 'Empresa';
-      fotoPerfil = null;
-      puntaje = null;
-    } else {
-      final persona = json['usuario_persona'];
-      nombre = '${persona['nombre']} ${persona['apellido']}';
-      fotoPerfil = persona['foto_perfil_url'];
-      puntaje = persona['puntaje_promedio']?.toDouble();
+    try {
+      // ✅ PRIMERO: Verificar usuario_persona
+      if (json['usuario_persona'] != null) {
+        final personaData = json['usuario_persona'];
+        
+        if (personaData is List && personaData.isNotEmpty) {
+          final persona = personaData[0];
+          if (persona is Map<String, dynamic>) {
+            nombre = '${persona['nombre']} ${persona['apellido']}'.trim();
+            fotoPerfil = persona['foto_perfil_url'];
+            puntaje = persona['puntaje_promedio']?.toDouble();
+            esEmpresa = false;
+          }
+        }
+      }
+      // ✅ SEGUNDO: Si NO hay persona, verificar empresa
+      else if (json['usuario_empresa'] != null) {
+        final empresaData = json['usuario_empresa'];
+        
+        if (empresaData is List && empresaData.isNotEmpty) {
+          final empresa = empresaData[0];
+          if (empresa is Map<String, dynamic>) {
+            nombre = empresa['nombre_corporativo'] ?? 'Empresa';
+            esEmpresa = true;
+          }
+        }
+      }
+    } catch (e) {
+      print('⚠️ Error: $e');
     }
 
     return PostulanteInfo(
@@ -245,10 +264,12 @@ class PostulanteInfo {
   }
 
   String getIniciales() {
+    if (nombre.isEmpty || nombre == 'Usuario') return '?';
+    
     final palabras = nombre.split(' ');
-    if (palabras.length >= 2) {
+    if (palabras.length >= 2 && palabras[0].isNotEmpty && palabras[1].isNotEmpty) {
       return '${palabras[0][0]}${palabras[1][0]}'.toUpperCase();
     }
-    return nombre.substring(0, 1).toUpperCase();
+    return nombre.length > 0 ? nombre[0].toUpperCase() : '?';
   }
 }

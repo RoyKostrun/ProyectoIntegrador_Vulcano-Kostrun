@@ -39,7 +39,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         errorMessage = e.toString();
         isLoading = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -96,9 +96,12 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     }
   }
 
-  int get _trabajosPublicados => trabajos.where((t) => t.estado.toUpperCase() == 'PUBLICADO').length;
-  int get _trabajosEnProgreso => trabajos.where((t) => t.estado.toUpperCase() == 'EN_PROGRESO').length;
-  int get _trabajosCompletados => trabajos.where((t) => t.estado.toUpperCase() == 'COMPLETADO').length;
+  int get _trabajosPublicados =>
+      trabajos.where((t) => t.estado.toUpperCase() == 'PUBLICADO').length;
+  int get _trabajosEnProgreso =>
+      trabajos.where((t) => t.estado.toUpperCase() == 'EN_PROGRESO').length;
+  int get _trabajosCompletados =>
+      trabajos.where((t) => t.estado.toUpperCase() == 'COMPLETADO').length;
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +322,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -410,7 +414,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      trabajo.nombreRubro,
+                      trabajo.nombreRubro ?? '',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
@@ -420,7 +424,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _getEstadoColor(trabajo.estado).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -436,9 +441,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Descripción
           Text(
             trabajo.descripcion,
@@ -450,9 +455,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
               height: 1.4,
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Información adicional
           Row(
             children: [
@@ -460,7 +465,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  trabajo.direccionCompleta,
+                  trabajo.direccionCompleta ?? '',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
@@ -494,9 +499,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Salario y método de pago
           Row(
             children: [
@@ -506,8 +511,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                     Icon(Icons.payments, size: 16, color: Colors.green[700]),
                     const SizedBox(width: 4),
                     Text(
-                      trabajo.salario != null 
-                          ? '\$${trabajo.salario!.toStringAsFixed(0)}' 
+                      trabajo.salario != null
+                          ? '\$${trabajo.salario!.toStringAsFixed(0)}'
                           : 'A convenir',
                       style: TextStyle(
                         fontSize: 14,
@@ -526,7 +531,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                   ],
                 ),
               ),
-              
+
               // Botones de acción
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -580,14 +585,14 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     if (confirmar == true && mounted) {
       try {
         await _trabajoService.deleteTrabajo(trabajo.id);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Trabajo eliminado correctamente'),
             backgroundColor: Colors.green,
           ),
         );
-        
+
         _cargarTrabajos(); // Recargar lista
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(

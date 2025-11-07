@@ -1,57 +1,51 @@
 // lib/services/perfil_service.dart
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/perfil_model.dart';
 
 class PerfilService {
   final _supabase = Supabase.instance.client;
 
-  // ==============================================================
-  // 🔹 OBTENER DATOS COMPLETOS DEL PERFIL
-  // ==============================================================
-  Future<Map<String, dynamic>> obtenerPerfilCompleto(int userId) async {
+  // ========================================
+  // 👤 OBTENER DATOS BÁSICOS DEL USUARIO
+  // ========================================
+  Future<Map<String, dynamic>> getDatosBasicosUsuario(int userId) async {
     try {
-      print('📊 Obteniendo perfil completo para usuario ID: $userId');
+      print('📊 Obteniendo datos básicos del usuario ID: $userId');
 
-      // Obtener datos del usuario
+      // Obtener el usuario con sus relaciones
       final response = await _supabase
           .from('usuario')
           .select('''
             id_usuario,
-            cantidad_trabajos_realizados,
-            usuario_persona!inner(
+            usuario_persona(
               nombre,
               apellido,
-              username,
-              foto_perfil_url,
-              puntaje_promedio
+              fecha_nacimiento,
+              genero
+            ),
+            usuario_empresa(
+              nombre_corporativo,
+              descripcion
             )
           ''')
           .eq('id_usuario', userId)
           .single();
 
-      print('✅ Datos del perfil obtenidos');
-      
-      return {
-        'id_usuario': response['id_usuario'],
-        'nombre': response['usuario_persona']['nombre'],
-        'apellido': response['usuario_persona']['apellido'],
-        'username': response['usuario_persona']['username'],
-        'foto_perfil_url': response['usuario_persona']['foto_perfil_url'],
-        'puntaje_promedio': response['usuario_persona']['puntaje_promedio'],
-        'cantidad_trabajos_realizados': response['cantidad_trabajos_realizados'],
-      };
+      print('✅ Datos básicos obtenidos');
+      return response;
     } catch (e) {
-      print('❌ Error al obtener perfil completo: $e');
+      print('❌ Error al obtener datos básicos: $e');
       rethrow;
     }
   }
 
-  // ==============================================================
-  // 🔹 OBTENER RESEÑAS DEL USUARIO
-  // ==============================================================
-  Future<List<Map<String, dynamic>>> obtenerResenias(int userId) async {
+  // ========================================
+  // ⭐ OBTENER RESEÑAS DEL USUARIO
+  // ========================================
+  Future<List<ReseniaModel>> getReseniasUsuario(int userId) async {
     try {
-      print('📝 Obteniendo reseñas para usuario ID: $userId');
+      print('📊 Obteniendo reseñas del usuario ID: $userId');
 
       final response = await _supabase
           .from('calificacion')
@@ -61,9 +55,7 @@ class PerfilService {
             comentario,
             recomendacion,
             fecha,
-            id_emisor,
-            emisor:usuario!calificacion_id_emisor_fkey(
-              id_usuario,
+            emisor:emisor_id!inner(
               usuario_persona(
                 nombre,
                 apellido,
@@ -73,94 +65,263 @@ class PerfilService {
                 nombre_corporativo
               )
             ),
-            trabajo:publicacion!calificacion_id_publicacion_fkey(
-              id_trabajo,
+            trabajo:trabajo_id(
               titulo
             )
           ''')
-          .eq('id_receptor', userId)
+          .eq('receptor_id', userId)
           .order('fecha', ascending: false);
 
       print('✅ ${response.length} reseñas obtenidas');
 
-      return List<Map<String, dynamic>>.from(response);
+      return (response as List)
+          .map((json) => ReseniaModel.fromJson(json))
+          .toList();
     } catch (e) {
       print('❌ Error al obtener reseñas: $e');
       return [];
     }
   }
 
-  // ==============================================================
-  // 🔹 OBTENER CATEGORÍAS/RUBROS DEL USUARIO
-  // ==============================================================
-  Future<List<Map<String, dynamic>>> obtenerCategorias(int userId) async {
+  // ========================================
+  // 📊 CALCULAR PROMEDIO DE CALIFICACIÓN
+  // ========================================
+  Future<double> getPromedioCalificacion(int userId) async {
     try {
-      print('📂 Obteniendo categorías para usuario ID: $userId');
+      final resenias = await getReseniasUsuario(userId);
+      
+      if (resenias.isEmpty) return 0.0;
 
+      final suma = resenias.fold<int>(
+        0,
+        (total, resenia) => total + resenia.puntuacion, // ✅ Cambiado de 'calificacion' a 'puntuacion'
+      );
+
+      return suma / resenias.length;
+    } catch (e) {
+      print('❌ Error al calcular promedio: $e');
+      return 0.0;
+    }
+  }
+
+  // ========================================
+  // 🏷️ OBTENER CATEGORÍAS DEL EMPLEADO
+  // ========================================
+  Future<List<CategoriaModel>> getCategoriasEmpleado(int empleadoId) async {
+    try {
+      print('📊 Obteniendo categorías del empleado ID: $empleadoId');
+
+      // Primero verificar que existe la tabla empleado_categoria
       final response = await _supabase
-          .from('usuario_rubro')
+          .from('empleado_categoria')
           .select('''
-            id_usuario_rubro,
-            fecha_asignacion,
-            activo,
-            rubro!inner(
-              id_rubro,
+            categoria:id_categoria(
+              id_categoria,
               nombre,
-              descripcion
+              descripcion,
+              icono
             )
           ''')
-          .eq('id_usuario', userId)
-          .eq('activo', true)
-          .order('fecha_asignacion', ascending: false);
+          .eq('empleado_id', empleadoId);
 
       print('✅ ${response.length} categorías obtenidas');
 
-      return List<Map<String, dynamic>>.from(response);
+      return (response as List)
+          .map((item) => CategoriaModel.fromJson(item['categoria']))
+          .toList();
     } catch (e) {
       print('❌ Error al obtener categorías: $e');
       return [];
     }
   }
 
-  // ==============================================================
-  // 🔹 OBTENER ESTADÍSTICAS DEL USUARIO
-  // ==============================================================
-  Future<Map<String, dynamic>> obtenerEstadisticas(int userId) async {
+  // ========================================
+  // 📈 CONTAR TRABAJOS COMPLETADOS
+  // ========================================
+  Future<int> contarTrabajosCompletados(int userId) async {
     try {
-      print('📈 Obteniendo estadísticas para usuario ID: $userId');
+      print('📊 Contando trabajos completados del usuario ID: $userId');
 
-      // Contar trabajos completados
-      final trabajosCompletados = await _supabase
+      final response = await _supabase
           .from('postulacion')
           .select('id_postulacion')
-          .eq('postulante_id', userId)
-          .eq('estado', 'ACEPTADO');
+          .eq('empleado_id', userId)
+          .eq('estado', 'COMPLETADO');
 
-      // Contar total de postulaciones
-      final totalPostulaciones = await _supabase
-          .from('postulacion')
-          .select('id_postulacion')
-          .eq('postulante_id', userId);
+      print('✅ ${response.length} trabajos completados');
+      return response.length;
+    } catch (e) {
+      print('❌ Error al contar trabajos: $e');
+      return 0;
+    }
+  }
 
-      // Contar reseñas recibidas
-      final totalResenias = await _supabase
-          .from('calificacion')
-          .select('id_calificacion')
-          .eq('id_receptor', userId);
+  // ========================================
+  // 📍 OBTENER UBICACIÓN DEL USUARIO
+  // ========================================
+  Future<String?> getUbicacionUsuario(int userId) async {
+    try {
+      print('📊 Obteniendo ubicación del usuario ID: $userId');
 
-      print('✅ Estadísticas obtenidas');
+      // Intentar obtener desde empleado primero
+      try {
+        final empleadoResponse = await _supabase
+            .from('empleado')
+            .select('''
+              ubicacion:ubicacion_id(
+                ciudad,
+                provincia
+              )
+            ''')
+            .eq('id_usuario', userId)
+            .maybeSingle();
+
+        if (empleadoResponse != null && empleadoResponse['ubicacion'] != null) {
+          final ubicacion = empleadoResponse['ubicacion'];
+          return '${ubicacion['ciudad']}, ${ubicacion['provincia']}';
+        }
+      } catch (e) {
+        print('No se encontró ubicación en empleado');
+      }
+
+      // Si no, intentar desde empleador
+      try {
+        final empleadorResponse = await _supabase
+            .from('empleador')
+            .select('''
+              ubicacion:ubicacion_id(
+                ciudad,
+                provincia
+              )
+            ''')
+            .eq('id_usuario', userId)
+            .maybeSingle();
+
+        if (empleadorResponse != null && empleadorResponse['ubicacion'] != null) {
+          final ubicacion = empleadorResponse['ubicacion'];
+          return '${ubicacion['ciudad']}, ${ubicacion['provincia']}';
+        }
+      } catch (e) {
+        print('No se encontró ubicación en empleador');
+      }
+
+      return null;
+    } catch (e) {
+      print('❌ Error al obtener ubicación: $e');
+      return null;
+    }
+  }
+
+  // ========================================
+  // 📧 VERIFICAR SI ES EMPLEADO
+  // ========================================
+  Future<bool> esEmpleado(int userId) async {
+    try {
+      final response = await _supabase
+          .from('empleado')
+          .select('id_empleado')
+          .eq('id_usuario', userId)
+          .maybeSingle();
+
+      return response != null;
+    } catch (e) {
+      print('❌ Error al verificar empleado: $e');
+      return false;
+    }
+  }
+
+  // ========================================
+  // 🏢 VERIFICAR SI ES EMPLEADOR
+  // ========================================
+  Future<bool> esEmpleador(int userId) async {
+    try {
+      final response = await _supabase
+          .from('empleador')
+          .select('id_empleador')
+          .eq('id_usuario', userId)
+          .maybeSingle();
+
+      return response != null;
+    } catch (e) {
+      print('❌ Error al verificar empleador: $e');
+      return false;
+    }
+  }
+
+  // ========================================
+  // 📊 OBTENER PERFIL COMPLETO
+  // ========================================
+  Future<Map<String, dynamic>> obtenerPerfilCompleto(int userId) async {
+    try {
+      print('📊 Obteniendo perfil completo del usuario ID: $userId');
+
+      final datosBasicos = await getDatosBasicosUsuario(userId);
+      final resenias = await getReseniasUsuario(userId);
+      final promedio = await getPromedioCalificacion(userId);
+      final ubicacion = await getUbicacionUsuario(userId);
+      final esEmpleadoResult = await esEmpleado(userId);
+      final esEmpleadorResult = await esEmpleador(userId);
+
+      int trabajosCompletados = 0;
+      List<CategoriaModel> categorias = [];
+
+      if (esEmpleadoResult) {
+        trabajosCompletados = await contarTrabajosCompletados(userId);
+        categorias = await getCategoriasEmpleado(userId);
+      }
 
       return {
-        'trabajos_completados': trabajosCompletados.length,
-        'total_postulaciones': totalPostulaciones.length,
-        'total_reseñas': totalResenias.length,
+        'datosBasicos': datosBasicos,
+        'resenias': resenias,
+        'promedio': promedio,
+        'ubicacion': ubicacion,
+        'esEmpleado': esEmpleadoResult,
+        'esEmpleador': esEmpleadorResult,
+        'trabajosCompletados': trabajosCompletados,
+        'categorias': categorias,
+      };
+    } catch (e) {
+      print('❌ Error al obtener perfil completo: $e');
+      rethrow;
+    }
+  }
+
+  // ========================================
+  // 📝 OBTENER RESEÑAS (ALIAS)
+  // ========================================
+  Future<List<ReseniaModel>> obtenerResenias(int userId) async {
+    return await getReseniasUsuario(userId);
+  }
+
+  // ========================================
+  // 🏷️ OBTENER CATEGORÍAS (ALIAS)
+  // ========================================
+  Future<List<CategoriaModel>> obtenerCategorias(int userId) async {
+    return await getCategoriasEmpleado(userId);
+  }
+
+  // ========================================
+  // 📊 OBTENER ESTADÍSTICAS
+  // ========================================
+  Future<Map<String, dynamic>> obtenerEstadisticas(int userId) async {
+    try {
+      print('📊 Obteniendo estadísticas del usuario ID: $userId');
+
+      final trabajosCompletados = await contarTrabajosCompletados(userId);
+      final promedio = await getPromedioCalificacion(userId);
+      final totalResenias = (await getReseniasUsuario(userId)).length;
+
+      return {
+        'trabajosCompletados': trabajosCompletados,
+        'promedioCalificacion': promedio,
+        'totalResenias': totalResenias,
       };
     } catch (e) {
       print('❌ Error al obtener estadísticas: $e');
       return {
-        'trabajos_completados': 0,
-        'total_postulaciones': 0,
-        'total_reseñas': 0,
+        'trabajosCompletados': 0,
+        'promedioCalificacion': 0.0,
+        'totalResenias': 0,
       };
     }
   }

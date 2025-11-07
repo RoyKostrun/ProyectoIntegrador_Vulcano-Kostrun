@@ -7,7 +7,6 @@ import '../../components/primary_button.dart';
 import '../../services/auth_service.dart';
 import '../../utils/validators.dart';
 import '../../utils/provinces_cities.dart';
-import '../../services/ubicacion_service.dart';
 
 
 class RegisterPersonalScreen extends StatefulWidget {

@@ -80,7 +80,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   Future<void> _irAUnirseEmpleadores() async {
     final resultado = await Navigator.pushNamed(context, '/unirse-empleadores');
-    
+
     if (resultado == true && mounted) {
       // El usuario se unió exitosamente, recargamos el estado
       await _verificarSiEsEmpleador();
@@ -92,17 +92,16 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     try {
       final result = await RubroService.getRubros();
       setState(() {
-        rubros = [
-          ...result.map((r) => r.nombre),
-          'Otros'
-        ];
+        rubros = [...result.map((r) => r.nombre), 'Otros'];
         isLoadingRubros = false;
       });
     } catch (e) {
       setState(() => isLoadingRubros = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar rubros: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Error al cargar rubros: $e'),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -120,7 +119,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       setState(() => isLoadingUbicaciones = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar ubicaciones: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Error al cargar ubicaciones: $e'),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -142,7 +143,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   String? _validarDescripcion(String? value) {
     if (value == null || value.isEmpty) return 'Este campo es requerido';
-    if (value.length < 20) return 'La descripción debe tener al menos 20 caracteres';
+    if (value.length < 20)
+      return 'La descripción debe tener al menos 20 caracteres';
     return null;
   }
 
@@ -156,7 +158,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     return null;
   }
 
-  Future<void> _seleccionarHora(TextEditingController controller, {bool abrirSiguiente = false}) async {
+  Future<void> _seleccionarHora(TextEditingController controller,
+      {bool abrirSiguiente = false}) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
@@ -175,9 +178,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
     if (picked != null) {
       setState(() {
-        controller.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+        controller.text =
+            '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
       });
-      
+
       if (abrirSiguiente) {
         Future.delayed(const Duration(milliseconds: 300), () {
           _seleccionarHora(horarioFinController);
@@ -212,7 +216,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     if (picked != null) {
       final rango = <DateTime>[];
       var current = picked.start;
-      while (current.isBefore(picked.end) || current.isAtSameMomentAs(picked.end)) {
+      while (current.isBefore(picked.end) ||
+          current.isAtSameMomentAs(picked.end)) {
         rango.add(current);
         current = current.add(const Duration(days: 1));
       }
@@ -233,7 +238,48 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   }
 
   void _irAAgregarUbicacion() {
-    Navigator.pushNamed(context, '/agregar-ubicacion').then((_) => _cargarUbicaciones());
+    Navigator.pushNamed(context, '/agregar-ubicacion')
+        .then((_) => _cargarUbicaciones());
+  }
+
+// ✅ NUEVO: Método para crear ubicación y preservar formulario
+  Future<void> _crearNuevaUbicacion() async {
+    // Ir a crear ubicación y esperar resultado
+    final nuevaUbicacion = await Navigator.pushNamed(
+      context,
+      '/crear-ubicacion',
+    );
+
+    // Si se creó una ubicación
+    if (nuevaUbicacion != null && mounted) {
+      print('✅ Nueva ubicación creada: $nuevaUbicacion');
+
+      // Recargar la lista de ubicaciones
+      await _cargarUbicaciones();
+
+      // Buscar y seleccionar la nueva ubicación
+      setState(() {
+        if (nuevaUbicacion is Map<String, dynamic>) {
+          final idNuevaUbicacion = nuevaUbicacion['id_ubicacion'].toString();
+
+          // Seleccionar la nueva ubicación
+          ubicacionSeleccionada = idNuevaUbicacion;
+
+          // Construir dirección completa
+          direccionCompleta =
+              '${nuevaUbicacion['calle']} ${nuevaUbicacion['numero']}, ${nuevaUbicacion['ciudad']}, ${nuevaUbicacion['provincia']}';
+        }
+      });
+
+      // Mostrar confirmación
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Nueva ubicación seleccionada'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<int?> _getIdRubroByName(String nombre) async {
@@ -253,28 +299,40 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   Future<void> _publicarTrabajo() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Completa todos los campos obligatorios'), backgroundColor: Colors.red),
+        const SnackBar(
+            content: Text('Completa todos los campos obligatorios'),
+            backgroundColor: Colors.red),
       );
       return;
     }
 
     if (fechasSeleccionadas.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debe seleccionar al menos una fecha para el trabajo'), backgroundColor: Colors.red),
+        const SnackBar(
+            content:
+                Text('Debe seleccionar al menos una fecha para el trabajo'),
+            backgroundColor: Colors.red),
       );
       return;
     }
 
     if (periodoPagoSeleccionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debe seleccionar el período de pago'), backgroundColor: Colors.red),
+        const SnackBar(
+            content: Text('Debe seleccionar el período de pago'),
+            backgroundColor: Colors.red),
       );
       return;
     }
 
-    if (selectedRubro == null || selectedMetodoPago == null || cantidadSeleccionada == null || ubicacionSeleccionada == null) {
+    if (selectedRubro == null ||
+        selectedMetodoPago == null ||
+        cantidadSeleccionada == null ||
+        ubicacionSeleccionada == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Faltan seleccionar opciones obligatorias'), backgroundColor: Colors.red),
+        const SnackBar(
+            content: Text('Faltan seleccionar opciones obligatorias'),
+            backgroundColor: Colors.red),
       );
       return;
     }
@@ -283,7 +341,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     final fin = _parseHora(horarioFinController.text);
     if (inicio != null && fin != null && fin.isBefore(inicio)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('La hora de fin no puede ser menor a la de inicio'), backgroundColor: Colors.red),
+        const SnackBar(
+            content: Text('La hora de fin no puede ser menor a la de inicio'),
+            backgroundColor: Colors.red),
       );
       return;
     }
@@ -307,8 +367,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       final datosEnvio = {
         'titulo': tituloController.text.trim(),
         'descripcion': descripcionController.text.trim(),
-        'salario': sinPrecio || salarioController.text.isEmpty 
-            ? 0.0 
+        'salario': sinPrecio || salarioController.text.isEmpty
+            ? 0.0
             : double.parse(salarioController.text),
         'cantidad_empleados_requeridos': cantidadSeleccionada,
         'id_rubro': idRubro,
@@ -317,7 +377,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         'periodo_pago': periodoPagoSeleccionado!,
         'estado_publicacion': 'PUBLICADO',
         'urgencia': 'ESTANDAR',
-        'fecha_inicio': fechasSeleccionadas.first.toIso8601String().split('T')[0],
+        'fecha_inicio':
+            fechasSeleccionadas.first.toIso8601String().split('T')[0],
         'fecha_fin': fechasSeleccionadas.last.toIso8601String().split('T')[0],
         'horario_inicio': horarioInicioController.text,
         'horario_fin': horarioFinController.text,
@@ -329,16 +390,15 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('La publicación laboral se creó exitosamente'),
-            backgroundColor: Color(0xFFC5414B)
-          ),
+              content: Text('La publicación laboral se creó exitosamente'),
+              backgroundColor: Color(0xFFC5414B)),
         );
         Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/main-nav',
-            (route) => false,
-            arguments: {'initialTab': 0},
-          );
+          context,
+          '/main-nav',
+          (route) => false,
+          arguments: {'initialTab': 0},
+        );
       }
 
       _limpiarFormulario();
@@ -346,9 +406,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al publicar: $e'), 
-            backgroundColor: Colors.red
-          ),
+              content: Text('Error al publicar: $e'),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -395,7 +454,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         appBar: AppBar(
           backgroundColor: const Color(0xFFC5414B),
           elevation: 0,
-          title: const Text('Crear Trabajo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: const Text('Crear Trabajo',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -408,7 +469,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         appBar: AppBar(
           backgroundColor: const Color(0xFFC5414B),
           elevation: 0,
-          title: const Text('Crear Trabajo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: const Text('Crear Trabajo',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
         body: Center(
           child: Padding(
@@ -497,7 +560,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         appBar: AppBar(
           backgroundColor: const Color(0xFFC5414B),
           elevation: 0,
-          title: const Text('Crear Trabajo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: const Text('Crear Trabajo',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -508,7 +573,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFC5414B),
         elevation: 0,
-        title: const Text('Crear Trabajo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Crear Trabajo',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: Form(
         key: _formKey,
@@ -525,7 +591,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               const SizedBox(height: 20),
               _buildDetallesTrabajo(),
               const SizedBox(height: 32),
-              PrimaryButton(text: 'Publicar Trabajo', onPressed: _publicarTrabajo, isLoading: isLoading),
+              PrimaryButton(
+                  text: 'Publicar Trabajo',
+                  onPressed: _publicarTrabajo,
+                  isLoading: isLoading),
               const SizedBox(height: 16),
             ],
           ),
@@ -540,8 +609,16 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       child: RichText(
         text: TextSpan(
           text: label,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2D3142)),
-          children: required ? [const TextSpan(text: ' *', style: TextStyle(color: Color(0xFFC5414B)))] : [],
+          style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2D3142)),
+          children: required
+              ? [
+                  const TextSpan(
+                      text: ' *', style: TextStyle(color: Color(0xFFC5414B)))
+                ]
+              : [],
         ),
       ),
     );
@@ -552,16 +629,28 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFFC5414B), Color(0xFFE85A4F)]),
+        gradient: const LinearGradient(
+            colors: [Color(0xFFC5414B), Color(0xFFE85A4F)]),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: const Color(0xFFC5414B).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+              color: const Color(0xFFC5414B).withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4))
+        ],
       ),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Publica tu Trabajo', style: TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold)),
+          Text('Publica tu Trabajo',
+              style: TextStyle(
+                  fontSize: 24,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold)),
           SizedBox(height: 8),
-          Text('Completa todos los detalles para atraer a los mejores candidatos', style: TextStyle(fontSize: 14, color: Colors.white70)),
+          Text(
+              'Completa todos los detalles para atraer a los mejores candidatos',
+              style: TextStyle(fontSize: 14, color: Colors.white70)),
         ],
       ),
     );
@@ -570,15 +659,25 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   Widget _buildInformacionBasica() {
     return _buildCard('Información básica', Icons.work_outline, [
       _buildFieldLabel('Título del trabajo', required: true),
-      TextFormField(controller: tituloController, validator: _validarTitulo, decoration: _inputDecoration('Ej: Mozo para evento')),
+      TextFormField(
+          controller: tituloController,
+          validator: _validarTitulo,
+          decoration: _inputDecoration('Ej: Mozo para evento')),
       const SizedBox(height: 16),
       _buildFieldLabel('Descripción del trabajo', required: true),
-      TextFormField(controller: descripcionController, validator: _validarDescripcion, maxLines: 4, decoration: _inputDecoration('Describe el trabajo, logística y capacidades requeridas')),
+      TextFormField(
+          controller: descripcionController,
+          validator: _validarDescripcion,
+          maxLines: 4,
+          decoration: _inputDecoration(
+              'Describe el trabajo, logística y capacidades requeridas')),
       const SizedBox(height: 16),
       _buildFieldLabel('Categoría', required: true),
       DropdownButtonFormField<String>(
         value: selectedRubro,
-        items: rubros.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+        items: rubros
+            .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+            .toList(),
         onChanged: (val) => setState(() => selectedRubro = val),
         decoration: _inputDecoration('Selecciona una categoría'),
         validator: (val) => val == null ? 'Selecciona una categoría' : null,
@@ -598,12 +697,16 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               children: [
                 _buildFieldLabel('Horario de inicio', required: true),
                 GestureDetector(
-                  onTap: () => _seleccionarHora(horarioInicioController, abrirSiguiente: true),
+                  onTap: () => _seleccionarHora(horarioInicioController,
+                      abrirSiguiente: true),
                   child: AbsorbPointer(
                     child: TextFormField(
                       controller: horarioInicioController,
-                      decoration: _inputDecoration('08:30').copyWith(suffixIcon: const Icon(Icons.access_time, color: Color(0xFFC5414B))),
-                      validator: (val) => val == null || val.isEmpty ? 'Requerido' : null,
+                      decoration: _inputDecoration('08:30').copyWith(
+                          suffixIcon: const Icon(Icons.access_time,
+                              color: Color(0xFFC5414B))),
+                      validator: (val) =>
+                          val == null || val.isEmpty ? 'Requerido' : null,
                     ),
                   ),
                 ),
@@ -621,8 +724,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                   child: AbsorbPointer(
                     child: TextFormField(
                       controller: horarioFinController,
-                      decoration: _inputDecoration('17:00').copyWith(suffixIcon: const Icon(Icons.access_time, color: Color(0xFFC5414B))),
-                      validator: (val) => val == null || val.isEmpty ? 'Requerido' : null,
+                      decoration: _inputDecoration('17:00').copyWith(
+                          suffixIcon: const Icon(Icons.access_time,
+                              color: Color(0xFFC5414B))),
+                      validator: (val) =>
+                          val == null || val.isEmpty ? 'Requerido' : null,
                     ),
                   ),
                 ),
@@ -639,7 +745,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       _buildFieldLabel('Cantidad de empleados', required: true),
       DropdownButtonFormField<int>(
         value: cantidadSeleccionada,
-        items: List.generate(5, (i) => i + 1).map((n) => DropdownMenuItem(value: n, child: Text('$n'))).toList(),
+        items: List.generate(5, (i) => i + 1)
+            .map((n) => DropdownMenuItem(value: n, child: Text('$n')))
+            .toList(),
         onChanged: (val) => setState(() {
           cantidadSeleccionada = val;
           if (!sinPrecio) salarioController.clear();
@@ -648,13 +756,13 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         validator: (val) => val == null ? 'Requerido' : null,
       ),
       const SizedBox(height: 16),
-      
       _buildFieldLabel(
-        cantidadSeleccionada == null 
-            ? 'Precio' 
-            : (cantidadSeleccionada == 1 ? 'Precio del trabajo' : 'Precio por trabajador'), 
-        required: !sinPrecio
-      ),
+          cantidadSeleccionada == null
+              ? 'Precio'
+              : (cantidadSeleccionada == 1
+                  ? 'Precio del trabajo'
+                  : 'Precio por trabajador'),
+          required: !sinPrecio),
       Row(
         children: [
           Expanded(
@@ -663,13 +771,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               enabled: cantidadSeleccionada != null && !sinPrecio,
               keyboardType: TextInputType.number,
               validator: _validarSalario,
-              decoration: _inputDecoration(
-                cantidadSeleccionada == null 
-                    ? 'Selecciona cantidad primero' 
-                    : (periodoPagoSeleccionado == null 
-                        ? 'Selecciona período abajo'
-                        : _getSalarioHint())
-              ),
+              decoration: _inputDecoration(cantidadSeleccionada == null
+                  ? 'Selecciona cantidad primero'
+                  : (periodoPagoSeleccionado == null
+                      ? 'Selecciona período abajo'
+                      : _getSalarioHint())),
             ),
           ),
           const SizedBox(width: 8),
@@ -679,7 +785,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               if (sinPrecio) salarioController.clear();
             }),
             style: ElevatedButton.styleFrom(
-              backgroundColor: sinPrecio ? const Color(0xFFC5414B) : Colors.grey.shade300,
+              backgroundColor:
+                  sinPrecio ? const Color(0xFFC5414B) : Colors.grey.shade300,
               foregroundColor: sinPrecio ? Colors.white : Colors.black87,
             ),
             child: Text(sinPrecio ? 'Con precio' : 'Sin precio'),
@@ -687,21 +794,20 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         ],
       ),
       const SizedBox(height: 16),
-      
       if (fechasSeleccionadas.isNotEmpty) ...[
         _buildFieldLabel('Período de pago', required: true),
         _buildPeriodoPagoSelector(),
         const SizedBox(height: 16),
       ],
-      
       _buildFieldLabel('Ubicación', required: true),
       _buildUbicacionDropdown(),
       const SizedBox(height: 16),
-      
       _buildFieldLabel('Método de pago', required: true),
       DropdownButtonFormField<String>(
         value: selectedMetodoPago,
-        items: metodosPago.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+        items: metodosPago
+            .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+            .toList(),
         onChanged: (val) => setState(() => selectedMetodoPago = val),
         decoration: _inputDecoration('Selecciona'),
         validator: (val) => val == null ? 'Requerido' : null,
@@ -767,12 +873,14 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.green.shade700, size: 20),
+                Icon(Icons.info_outline,
+                    color: Colors.green.shade700, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Trabajo de un solo día',
-                    style: TextStyle(fontSize: 13, color: Colors.green.shade900),
+                    style:
+                        TextStyle(fontSize: 13, color: Colors.green.shade900),
                   ),
                 ),
               ],
@@ -802,7 +910,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       );
     }
   }
- 
+
   Widget _buildPeriodoButton(String label, String value, IconData icon) {
     final isSelected = periodoPagoSeleccionado == value;
     return GestureDetector(
@@ -817,7 +925,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
-              ? [BoxShadow(color: const Color(0xFFC5414B).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))]
+              ? [
+                  BoxShadow(
+                      color: const Color(0xFFC5414B).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2))
+                ]
               : [],
         ),
         child: Column(
@@ -866,12 +979,23 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [Icon(icono, color: const Color(0xFFC5414B), size: 24), const SizedBox(width: 10), Text(titulo, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold))]),
+          Row(children: [
+            Icon(icono, color: const Color(0xFFC5414B), size: 24),
+            const SizedBox(width: 10),
+            Text(titulo,
+                style:
+                    const TextStyle(fontSize: 19, fontWeight: FontWeight.bold))
+          ]),
           const SizedBox(height: 20),
           ...children,
         ],
@@ -892,15 +1016,25 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(colors: [Color(0xFFC5414B), Color(0xFFE85A4F)]),
-                  borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                  gradient: LinearGradient(
+                      colors: [Color(0xFFC5414B), Color(0xFFE85A4F)]),
+                  borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16)),
                 ),
                 child: Row(
                   children: [
                     const Icon(Icons.location_on, color: Colors.white),
                     const SizedBox(width: 12),
-                    const Expanded(child: Text('Seleccionar Ubicación', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))),
-                    IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context)),
+                    const Expanded(
+                        child: Text('Seleccionar Ubicación',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white))),
+                    IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.pop(context)),
                   ],
                 ),
               ),
@@ -911,12 +1045,15 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                   itemCount: _ubicaciones.length,
                   itemBuilder: (context, index) {
                     final ubicacion = _ubicaciones[index];
-                    final isSelected = ubicacionSeleccionada == ubicacion['id_ubicacion'].toString();
+                    final isSelected = ubicacionSeleccionada ==
+                        ubicacion['id_ubicacion'].toString();
                     return GestureDetector(
                       onTap: () {
                         setState(() {
-                          ubicacionSeleccionada = ubicacion['id_ubicacion'].toString();
-                          direccionCompleta = '${ubicacion['calle']} ${ubicacion['numero']}, ${ubicacion['ciudad']}, ${ubicacion['provincia']}';
+                          ubicacionSeleccionada =
+                              ubicacion['id_ubicacion'].toString();
+                          direccionCompleta =
+                              '${ubicacion['calle']} ${ubicacion['numero']}, ${ubicacion['ciudad']}, ${ubicacion['provincia']}';
                         });
                         Navigator.pop(context);
                       },
@@ -924,34 +1061,71 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFFC5414B).withOpacity(0.1) : Colors.white,
-                          border: Border.all(color: isSelected ? const Color(0xFFC5414B) : Colors.grey.shade300, width: isSelected ? 2 : 1),
+                          color: isSelected
+                              ? const Color(0xFFC5414B).withOpacity(0.1)
+                              : Colors.white,
+                          border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFFC5414B)
+                                  : Colors.grey.shade300,
+                              width: isSelected ? 2 : 1),
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFC5414B).withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))] : null,
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                      color: const Color(0xFFC5414B)
+                                          .withOpacity(0.2),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2))
+                                ]
+                              : null,
                         ),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFFC5414B) : Colors.grey.shade100,
+                                color: isSelected
+                                    ? const Color(0xFFC5414B)
+                                    : Colors.grey.shade100,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Icon(Icons.home, color: isSelected ? Colors.white : Colors.grey.shade600, size: 24),
+                              child: Icon(Icons.home,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.grey.shade600,
+                                  size: 24),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('${ubicacion['nombre']} - ${ubicacion['ciudad']}', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isSelected ? const Color(0xFFC5414B) : Colors.black)),
+                                  Text(
+                                      '${ubicacion['nombre']} - ${ubicacion['ciudad']}',
+                                      style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                          color: isSelected
+                                              ? const Color(0xFFC5414B)
+                                              : Colors.black)),
                                   const SizedBox(height: 4),
-                                  Text('${ubicacion['calle']} ${ubicacion['numero']}', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
-                                  Text('${ubicacion['ciudad']}, ${ubicacion['provincia']}', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                                  Text(
+                                      '${ubicacion['calle']} ${ubicacion['numero']}',
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey.shade700)),
+                                  Text(
+                                      '${ubicacion['ciudad']}, ${ubicacion['provincia']}',
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey.shade600)),
                                 ],
                               ),
                             ),
-                            if (isSelected) const Icon(Icons.check_circle, color: Color(0xFFC5414B), size: 28),
+                            if (isSelected)
+                              const Icon(Icons.check_circle,
+                                  color: Color(0xFFC5414B), size: 28),
                           ],
                         ),
                       ),
@@ -964,7 +1138,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    _irAAgregarUbicacion();
+                    _crearNuevaUbicacion();
                   },
                   icon: const Icon(Icons.add_location),
                   label: const Text('Agregar nueva ubicación'),
@@ -986,8 +1160,18 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     if (isLoadingUbicaciones) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
-        child: const Row(children: [SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)), SizedBox(width: 12), Text('Cargando...')]),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8)),
+        child: const Row(children: [
+          SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 12),
+          Text('Cargando...')
+        ]),
       );
     }
 
@@ -997,8 +1181,15 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.orange.shade50, border: Border.all(color: Colors.orange.shade200), borderRadius: BorderRadius.circular(8)),
-            child: Row(children: [Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700), const SizedBox(width: 12), const Expanded(child: Text('No tienes ubicaciones guardadas'))]),
+            decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                border: Border.all(color: Colors.orange.shade200),
+                borderRadius: BorderRadius.circular(8)),
+            child: Row(children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+              const SizedBox(width: 12),
+              const Expanded(child: Text('No tienes ubicaciones guardadas'))
+            ]),
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -1007,7 +1198,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               onPressed: _irAAgregarUbicacion,
               icon: const Icon(Icons.add_location),
               label: const Text('Agregar ubicación'),
-              style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFC5414B), side: const BorderSide(color: Color(0xFFC5414B))),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFC5414B),
+                  side: const BorderSide(color: Color(0xFFC5414B))),
             ),
           ),
         ],
@@ -1023,12 +1216,19 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: ubicacionSeleccionada != null ? const Color(0xFFC5414B) : Colors.grey.shade300, width: ubicacionSeleccionada != null ? 2 : 1),
+              border: Border.all(
+                  color: ubicacionSeleccionada != null
+                      ? const Color(0xFFC5414B)
+                      : Colors.grey.shade300,
+                  width: ubicacionSeleccionada != null ? 2 : 1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                Icon(Icons.location_on, color: ubicacionSeleccionada != null ? const Color(0xFFC5414B) : Colors.grey.shade400),
+                Icon(Icons.location_on,
+                    color: ubicacionSeleccionada != null
+                        ? const Color(0xFFC5414B)
+                        : Colors.grey.shade400),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -1036,13 +1236,22 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                     children: [
                       Text(
                         ubicacionSeleccionada != null
-                            ? _ubicaciones.firstWhere((u) => u['id_ubicacion'].toString() == ubicacionSeleccionada)['nombre']
+                            ? _ubicaciones.firstWhere((u) =>
+                                u['id_ubicacion'].toString() ==
+                                ubicacionSeleccionada)['nombre']
                             : 'Seleccionar ubicación',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: ubicacionSeleccionada != null ? Colors.black : Colors.grey.shade600),
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: ubicacionSeleccionada != null
+                                ? Colors.black
+                                : Colors.grey.shade600),
                       ),
                       if (direccionCompleta != null) ...[
                         const SizedBox(height: 4),
-                        Text(direccionCompleta!, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                        Text(direccionCompleta!,
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.grey.shade700)),
                       ],
                     ],
                   ),
@@ -1055,7 +1264,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         if (ubicacionSeleccionada == null)
           Padding(
             padding: const EdgeInsets.only(left: 16, top: 8),
-            child: Text('Este campo es requerido', style: TextStyle(color: Colors.red[700], fontSize: 12)),
+            child: Text('Este campo es requerido',
+                style: TextStyle(color: Colors.red[700], fontSize: 12)),
           ),
       ],
     );
@@ -1069,8 +1279,18 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           children: [
             _buildFieldLabel('Fechas del trabajo', required: true),
             const Spacer(),
-            TextButton.icon(onPressed: _seleccionarFecha, icon: const Icon(Icons.add, size: 16), label: const Text('Agregar'), style: TextButton.styleFrom(foregroundColor: const Color(0xFFC5414B))),
-            TextButton.icon(onPressed: _seleccionarRangoFechas, icon: const Icon(Icons.date_range, size: 16), label: const Text('Rango'), style: TextButton.styleFrom(foregroundColor: const Color(0xFFC5414B))),
+            TextButton.icon(
+                onPressed: _seleccionarFecha,
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Agregar'),
+                style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFC5414B))),
+            TextButton.icon(
+                onPressed: _seleccionarRangoFechas,
+                icon: const Icon(Icons.date_range, size: 16),
+                label: const Text('Rango'),
+                style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFC5414B))),
           ],
         ),
         const SizedBox(height: 8),
@@ -1078,8 +1298,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
-            child: Text('Debe seleccionar al menos una fecha', style: TextStyle(color: Colors.grey[600]), textAlign: TextAlign.center),
+            decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(12)),
+            child: Text('Debe seleccionar al menos una fecha',
+                style: TextStyle(color: Colors.grey[600]),
+                textAlign: TextAlign.center),
           )
         else
           Wrap(
@@ -1105,11 +1329,21 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
       filled: true,
       fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF012345), width: 2)),
-      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.red)),
-      disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade200)),
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300)),
+      enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300)),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF012345), width: 2)),
+      errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.red)),
+      disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade200)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }

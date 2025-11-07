@@ -1,7 +1,5 @@
-// lib/screen/user/ubicacion_screen.dart
-
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/ubicacion_service.dart';
 
 class UbicacionesScreen extends StatefulWidget {
   const UbicacionesScreen({Key? key}) : super(key: key);
@@ -11,7 +9,7 @@ class UbicacionesScreen extends StatefulWidget {
 }
 
 class _UbicacionesScreenState extends State<UbicacionesScreen> {
-  final supabase = Supabase.instance.client;
+  final _ubicacionService = UbicacionService();
   List<Map<String, dynamic>> ubicaciones = [];
   bool isLoading = true;
 
@@ -23,29 +21,9 @@ class _UbicacionesScreenState extends State<UbicacionesScreen> {
 
   Future<void> _cargarUbicaciones() async {
     try {
-      final authUser = supabase.auth.currentUser;
-      if (authUser == null) throw Exception('Usuario no autenticado');
-
-      // Buscar id_usuario en tu tabla usuario
-      final usuarioDb = await supabase
-          .from('usuario')
-          .select('id_usuario')
-          .eq('email', authUser.email!)
-          .maybeSingle();
-
-      if (usuarioDb == null) {
-        throw Exception('No se encontró el usuario en la tabla usuario');
-      }
-
-      final int idUsuario = usuarioDb['id_usuario'];
-
-      final response = await supabase
-          .from('ubicacion')
-          .select()
-          .eq('id_usuario', idUsuario);
-
+      final data = await _ubicacionService.getUbicacionesDelUsuario();
       setState(() {
-        ubicaciones = List<Map<String, dynamic>>.from(response);
+        ubicaciones = data;
       });
     } catch (e) {
       debugPrint('❌ Error al cargar ubicaciones: $e');
@@ -76,10 +54,28 @@ class _UbicacionesScreenState extends State<UbicacionesScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
+
+      // ✅ Botón flotante para agregar nueva ubicación
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFFC5414B),
+        onPressed: () async {
+          final result = await Navigator.pushNamed(context, '/crear-ubicacion');
+          if (result == true) {
+            _cargarUbicaciones(); // recargar después de crear
+          }
+        },
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : ubicaciones.isEmpty
-              ? const Center(child: Text("No tienes ubicaciones registradas"))
+              ? const Center(
+                  child: Text(
+                    "No tienes ubicaciones registradas",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                )
               : ListView.builder(
                   padding: const EdgeInsets.all(24),
                   itemCount: ubicaciones.length,
@@ -108,7 +104,7 @@ class _UbicacionesScreenState extends State<UbicacionesScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.location_on, color: const Color(0xFFC5414B), size: 30),
+          const Icon(Icons.location_on, color: Color(0xFFC5414B), size: 30),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -123,7 +119,10 @@ class _UbicacionesScreenState extends State<UbicacionesScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  "${ubicacion['calle'] ?? ''} ${ubicacion['numero'] ?? ''}, ${ubicacion['barrio'] ?? ''}, ${ubicacion['ciudad'] ?? ''}, ${ubicacion['provincia'] ?? ''}",
+                  "${ubicacion['calle'] ?? ''} ${ubicacion['numero'] ?? ''}, "
+                  "${ubicacion['barrio'] ?? ''}, "
+                  "${ubicacion['ciudad'] ?? ''}, "
+                  "${ubicacion['provincia'] ?? ''}",
                   style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ],

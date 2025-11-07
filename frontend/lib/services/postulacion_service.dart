@@ -1,5 +1,4 @@
 // lib/services/postulacion_service.dart
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/postulacion_model.dart';
 import 'auth_service.dart';
@@ -59,7 +58,7 @@ class PostulacionService {
           .from('postulacion')
           .insert({
             'trabajo_id': trabajoId,
-            'postulante_id': userId, // ✅ Correcto según tu tabla
+            'postulante_id': userId,
             'mensaje': mensaje,
             'oferta_pago': ofertaPago,
             'estado': 'PENDIENTE',
@@ -305,27 +304,67 @@ class PostulacionService {
 
   // ========================================
   // 9️⃣ OBTENER POSTULACIONES DE UN TRABAJO (para empleador)
+  // ✅ MÉTODO ALTERNATIVO: 2 Queries separadas (más robusto)
   // ========================================
   static Future<List<PostulacionModel>> getPostulacionesDeTrabajo(
     int trabajoId,
   ) async {
     try {
-      final result = await _supabase
+      print('🔍 Obteniendo postulaciones para trabajo: $trabajoId');
+      
+      // ✅ PASO 1: Obtener postulaciones básicas
+      final postulaciones = await _supabase
           .from('postulacion')
-          .select('''
-            *,
-            postulante:postulante_id (
-              id_usuario,
-              usuario_persona (nombre, apellido, foto_perfil_url, puntaje_promedio),
-              usuario_empresa (nombre_corporativo)
-            )
-          ''')
+          .select('*')
           .eq('trabajo_id', trabajoId)
           .order('fecha_postulacion', ascending: false);
 
-      return result
-          .map((json) => PostulacionModel.fromJson(json))
-          .toList();
+      print('✅ ${(postulaciones as List).length} postulaciones encontradas');
+
+      // ✅ PASO 2: Para cada postulación, obtener datos del usuario
+      List<PostulacionModel> postulacionesCompletas = [];
+      
+      for (var postulacionJson in (postulaciones as List)) {
+        final postulanteId = postulacionJson['postulante_id'];
+        print('   🔍 Buscando datos de usuario $postulanteId...');
+        
+        try {
+          // Obtener datos del usuario
+          final usuario = await _supabase
+              .from('usuario')
+              .select('''
+                id_usuario,
+                usuario_persona(
+                  nombre,
+                  apellido,
+                  foto_perfil_url,
+                  puntaje_promedio
+                ),
+                usuario_empresa(
+                  nombre_corporativo
+                )
+              ''')
+              .eq('id_usuario', postulanteId)
+              .single();
+          
+          print('   ✅ Usuario encontrado: $usuario');
+          
+          // Agregar datos del usuario al JSON de la postulación
+          postulacionJson['postulante'] = usuario;
+          
+          // Crear modelo
+          postulacionesCompletas.add(PostulacionModel.fromJson(postulacionJson));
+          
+        } catch (e) {
+          print('   ⚠️ Error obteniendo usuario $postulanteId: $e');
+          // Agregar postulación sin datos de usuario
+          postulacionesCompletas.add(PostulacionModel.fromJson(postulacionJson));
+        }
+      }
+
+      print('✅ Total procesadas: ${postulacionesCompletas.length}');
+      return postulacionesCompletas;
+      
     } catch (e) {
       print('❌ Error obteniendo postulaciones del trabajo: $e');
       rethrow;

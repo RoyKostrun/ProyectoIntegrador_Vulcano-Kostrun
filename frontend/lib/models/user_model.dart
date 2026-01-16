@@ -243,6 +243,7 @@ class UserPersona {
     if (esEmpleado) return 'Empleado';
     return 'Sin rol asignado';
   }
+  String? get fotoPerfil => fotoPerfilUrl;
 }
 
 class UserEmpresa {

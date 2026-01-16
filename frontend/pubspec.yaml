@@ -13,7 +13,18 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  image_picker: ^1.0.7
+  image_picker_web: ^3.1.1
+  image_picker_platform_interface: ^2.9.1
+  
+  # UI Components
   cupertino_icons: ^1.0.6
+  table_calendar: ^3.0.9
+  
+  # Internationalization
+  intl: ^0.20.2
+  
+  # Backend
   supabase_flutter: ^2.10.1
   postgres: ^3.5.6
   postgrest: ^2.1.4

@@ -1,8 +1,8 @@
-// lib/screens/login/inicio_screen.dart
+// lib/screens/login/menu_perfil/user_menu_screen.dart
 import 'package:flutter/material.dart';
-import '../../services/auth_service.dart';
-import '../../models/user_model.dart' as AppUser;
-import '../../components/primary_button.dart';
+import '../../../services/auth_service.dart';
+import '../../../models/user_model.dart' as AppUser;
+import '../../../components/primary_button.dart';
 
 
 class UserMenuScreen extends StatefulWidget {
@@ -61,7 +61,7 @@ class _UserMenuScreenState extends State<UserMenuScreen> {
         Navigator.pushNamed(context, '/perfil');
         break;
       case 'Mis Rubros':
-        _showComingSoon('Gestión de Rubros');
+        Navigator.pushNamed(context, '/mis-rubros');
         break;
       case 'Mis Ubicaciones':
         Navigator.pushNamed(context, '/ubicaciones');
@@ -73,16 +73,16 @@ class _UserMenuScreenState extends State<UserMenuScreen> {
         _showComingSoon('Chat');
         break;
       case 'Agenda':
-        _showComingSoon('Agenda');
+         Navigator.pushNamed(context, '/agenda');
         break;
       case 'Calendario':
-        _showComingSoon('Calendario');
+        Navigator.pushNamed(context, '/calendario');
         break;
       case 'Notificaciones':
         _showComingSoon('Notificaciones');
         break;
       case 'Configuración':
-        _showComingSoon('Configuración');
+        Navigator.pushNamed(context, '/configuracion');
         break;
       default:
         _showComingSoon(screenName);

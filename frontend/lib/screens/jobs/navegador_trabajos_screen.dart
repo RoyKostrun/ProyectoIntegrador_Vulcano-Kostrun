@@ -1,11 +1,13 @@
-//lib/screens/jobs/navegador_trabajos_screen.dart
+// lib/screens/jobs/navegador_trabajos_screen.dart
+// ✅ CON FILTROS + BOTÓN CREAR + FONDO ROSADO
+
 import 'package:flutter/material.dart';
 import '../../models/trabajo_model.dart';
 import '../../services/trabajo_service.dart';
-import 'detalle_trabajo_screen.dart'; // ✅ Para trabajos AJENOS
-import 'detalle_trabajo_propio_screen.dart'; // ✅ Para trabajos PROPIOS
 import '../../services/postulacion_service.dart';
-import '../main_nav_screen.dart';
+import '../../services/ubicacion_service.dart';
+import 'detalle_trabajo_screen.dart';
+import '../../widgets/trabajo_propio_card.dart';
 
 class NavegadorTrabajosScreen extends StatefulWidget {
   const NavegadorTrabajosScreen({Key? key}) : super(key: key);
@@ -17,10 +19,20 @@ class NavegadorTrabajosScreen extends StatefulWidget {
 
 class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
   final servicio = TrabajoService();
+  final UbicacionService _ubicacionService = UbicacionService();
+  
   List<TrabajoModel> trabajos = [];
+  List<TrabajoModel> _todosLosTrabajos = [];
+  List<Map<String, dynamic>> _ubicaciones = [];
+  
   bool isLoading = true;
   bool mostrandoMisTrabajos = false;
   String? errorMessage;
+
+  // ✅ FILTROS (solo para MIS TRABAJOS)
+  String _filtroEstado = 'TODOS';
+  String _ordenamiento = 'MAS_NUEVO';
+  int? _ubicacionSeleccionada;
 
   @override
   void initState() {
@@ -38,19 +50,28 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
       List<TrabajoModel> result;
 
       if (mostrandoMisTrabajos) {
-        // ✅ CORREGIDO: Cargar MIS trabajos
-        result = await servicio.getMisTrabajos(from: 0, to: 19);
+        result = await servicio.getMisTrabajos();
+        final resultUbicaciones = await _ubicacionService.getUbicacionesDelUsuario();
+        
+        setState(() {
+          _todosLosTrabajos = result;
+          _ubicaciones = resultUbicaciones;
+          isLoading = false;
+        });
+        
+        _aplicarFiltrosYOrdenamiento();
+        
         print('📋 Cargados ${result.length} de mis trabajos');
       } else {
-        // ✅ CORREGIDO: Cargar trabajos de OTROS
         result = await servicio.getTrabajos(from: 0, to: 19);
+        
+        setState(() {
+          trabajos = result;
+          isLoading = false;
+        });
+        
         print('📋 Cargados ${result.length} trabajos de otros usuarios');
       }
-
-      setState(() {
-        trabajos = result;
-        isLoading = false;
-      });
     } catch (e) {
       print('❌ Error cargando trabajos: $e');
       setState(() {
@@ -72,81 +93,384 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
   void _toggleVista() {
     setState(() {
       mostrandoMisTrabajos = !mostrandoMisTrabajos;
+      // Resetear filtros al cambiar
+      _filtroEstado = 'TODOS';
+      _ordenamiento = 'MAS_NUEVO';
+      _ubicacionSeleccionada = null;
     });
     _cargarTrabajos();
   }
 
-  Map<int, Map<String, int>> _puestosCache = {}; // Cache para los puestos
+  void _aplicarFiltrosYOrdenamiento() {
+    List<TrabajoModel> resultado = List.from(_todosLosTrabajos);
 
-  Future<Map<String, int>> _obtenerPuestos(int trabajoId) async {
-    // Si ya está en cache, devolverlo
-    if (_puestosCache.containsKey(trabajoId)) {
-      return _puestosCache[trabajoId]!;
+    // Filtro por estado
+    if (_filtroEstado == 'PUBLICADOS') {
+      resultado = resultado.where((t) => 
+        t.estadoPublicacion == EstadoPublicacion.PUBLICADO ||
+        t.estadoPublicacion == EstadoPublicacion.EN_PROGRESO
+      ).toList();
+    } else if (_filtroEstado == 'VENCIDOS') {
+      resultado = resultado.where((t) => _estaVencido(t)).toList();
     }
 
-    try {
-      final puestos =
-          await PostulacionService.obtenerPuestosDisponibles(trabajoId);
-      _puestosCache[trabajoId] = puestos;
-      return puestos;
-    } catch (e) {
-      print('Error obteniendo puestos: $e');
-      return {
-        'totales': 1,
-        'ocupados': 0,
-        'disponibles': 1,
-      };
+    // Filtro por ubicación
+    if (_ubicacionSeleccionada != null) {
+      resultado = resultado.where((t) => 
+        t.ubicacionId == _ubicacionSeleccionada
+      ).toList();
     }
+
+    // Ordenamiento
+    switch (_ordenamiento) {
+      case 'MAS_NUEVO':
+        resultado.sort((a, b) => b.fechaInicio.compareTo(a.fechaInicio));
+        break;
+      case 'MAS_VIEJO':
+        resultado.sort((a, b) => a.fechaInicio.compareTo(b.fechaInicio));
+        break;
+      case 'MONTO_MENOR':
+        resultado.sort((a, b) {
+          final montoA = a.salario ?? 0;
+          final montoB = b.salario ?? 0;
+          return montoA.compareTo(montoB);
+        });
+        break;
+      case 'MONTO_MAYOR':
+        resultado.sort((a, b) {
+          final montoA = a.salario ?? 0;
+          final montoB = b.salario ?? 0;
+          return montoB.compareTo(montoA);
+        });
+        break;
+    }
+
+    setState(() {
+      trabajos = resultado;
+    });
   }
 
-  String _getEstadoLabel(String estado) {
-    switch (estado.toUpperCase()) {
-      case 'PUBLICADO':
-        return 'Publicado';
-      case 'EN_PROGRESO':
-        return 'En Progreso';
-      case 'COMPLETADO':
-        return 'Completado';
-      case 'CANCELADO':
-        return 'Cancelado';
-      default:
-        return estado;
+  bool _estaVencido(TrabajoModel trabajo) {
+    if (trabajo.estadoPublicacion == EstadoPublicacion.VENCIDO ||
+        trabajo.estadoPublicacion == EstadoPublicacion.CANCELADO ||
+        trabajo.estadoPublicacion == EstadoPublicacion.COMPLETO ||
+        trabajo.estadoPublicacion == EstadoPublicacion.FINALIZADO) {
+      return true;
     }
+    
+    final fechaFin = trabajo.fechaFin ?? trabajo.fechaInicio;
+    final hoy = DateTime.now();
+    final fechaFinNormalizada = DateTime(fechaFin.year, fechaFin.month, fechaFin.day);
+    final hoyNormalizado = DateTime(hoy.year, hoy.month, hoy.day);
+    
+    return fechaFinNormalizada.isBefore(hoyNormalizado);
   }
 
-  Color _getEstadoColor(String estado) {
-    switch (estado.toUpperCase()) {
-      case 'PUBLICADO':
-        return Colors.blue;
-      case 'EN_PROGRESO':
-        return Colors.orange;
-      case 'COMPLETADO':
-        return Colors.green;
-      case 'CANCELADO':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
+  void _mostrarFiltros() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setModalState) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            maxChildSize: 0.9,
+            minChildSize: 0.5,
+            builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    const Icon(Icons.filter_list, color: Color(0xFFC5414B)),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Filtros y Ordenamiento',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _filtroEstado = 'TODOS';
+                          _ordenamiento = 'MAS_NUEVO';
+                          _ubicacionSeleccionada = null;
+                        });
+                        _aplicarFiltrosYOrdenamiento();
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Limpiar'),
+                    ),
+                  ],
+                ),
+              ),
+
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  children: [
+                    const Text('🏷️ Estado', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    _buildEstadoChip('TODOS', 'Todos', setModalState),
+                    const SizedBox(height: 8),
+                    _buildEstadoChip('PUBLICADOS', 'Publicados', setModalState),
+                    const SizedBox(height: 8),
+                    _buildEstadoChip('VENCIDOS', 'Vencidos', setModalState),
+                    
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 24),
+
+                    const Text('🔢 Ordenar por', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    _buildOrdenamientoChip('MAS_NUEVO', 'Más nuevo primero', Icons.arrow_downward, setModalState),
+                    const SizedBox(height: 8),
+                    _buildOrdenamientoChip('MAS_VIEJO', 'Más viejo primero', Icons.arrow_upward, setModalState),
+                    const SizedBox(height: 8),
+                    _buildOrdenamientoChip('MONTO_MENOR', 'Monto: menor a mayor', Icons.attach_money, setModalState),
+                    const SizedBox(height: 8),
+                    _buildOrdenamientoChip('MONTO_MAYOR', 'Monto: mayor a menor', Icons.money_off, setModalState),
+                    
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 24),
+
+                    const Text('📍 Ubicación', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    _buildUbicacionChip(null, 'Todas las ubicaciones', setModalState),
+                    const SizedBox(height: 8),
+                    ..._ubicaciones.map((ubicacion) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _buildUbicacionChip(
+                          ubicacion['id_ubicacion'],
+                          ubicacion['nombre'] ?? 'Sin nombre',
+                          setModalState,
+                        ),
+                      );
+                    }).toList(),
+
+                    const SizedBox(height: 100),
+                  ],
+                ),
+              ),
+
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      _aplicarFiltrosYOrdenamiento();
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFC5414B),
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Aplicar Filtros',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+          );
+        },
+      ),
+    );
   }
 
-  Color _getUrgenciaColor(String urgencia) {
-    switch (urgencia.toUpperCase()) {
-      case 'ALTA':
-        return Colors.red;
-      case 'MEDIA':
-        return Colors.orange;
-      case 'BAJA':
-      case 'ESTANDAR':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
+  Widget _buildEstadoChip(String valor, String label, StateSetter setModalState) {
+    final isSelected = _filtroEstado == valor;
+    
+    return GestureDetector(
+      onTap: () {
+        setModalState(() {  // ✅ Actualiza el modal
+          _filtroEstado = valor;
+        });
+        setState(() {  // ✅ Actualiza la pantalla principal
+          _filtroEstado = valor;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFC5414B).withOpacity(0.1) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFC5414B) : Colors.grey[300]!,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle : Icons.circle_outlined,
+              color: isSelected ? const Color(0xFFC5414B) : Colors.grey,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? const Color(0xFFC5414B) : Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrdenamientoChip(String valor, String label, IconData icon, StateSetter setModalState) {
+    final isSelected = _ordenamiento == valor;
+    
+    return GestureDetector(
+      onTap: () {
+        setModalState(() {  // ✅ Actualiza el modal
+          _ordenamiento = valor;
+        });
+        setState(() {  // ✅ Actualiza la pantalla principal
+          _ordenamiento = valor;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFC5414B).withOpacity(0.1) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFC5414B) : Colors.grey[300]!,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? const Color(0xFFC5414B) : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? const Color(0xFFC5414B) : Colors.black87,
+              ),
+            ),
+            const Spacer(),
+            if (isSelected)
+              const Icon(
+                Icons.check_circle,
+                color: Color(0xFFC5414B),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUbicacionChip(int? ubicacionId, String nombre, StateSetter setModalState) {
+    final isSelected = _ubicacionSeleccionada == ubicacionId;
+    
+    return GestureDetector(
+      onTap: () {
+        setModalState(() {  // ✅ Actualiza el modal
+          _ubicacionSeleccionada = ubicacionId;
+        });
+        setState(() {  // ✅ Actualiza la pantalla principal
+          _ubicacionSeleccionada = ubicacionId;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFC5414B).withOpacity(0.1) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFC5414B) : Colors.grey[300]!,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.location_on,
+              color: isSelected ? const Color(0xFFC5414B) : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                nombre,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? const Color(0xFFC5414B) : Colors.black87,
+                ),
+              ),
+            ),
+            if (isSelected)
+              const Icon(
+                Icons.check_circle,
+                color: Color(0xFFC5414B),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      // ✅ FONDO ROSADO cuando muestra trabajos propios
+      backgroundColor: mostrandoMisTrabajos 
+          ? const Color.fromARGB(255, 235, 176, 181)
+          : const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFFC5414B),
         elevation: 0,
@@ -166,15 +490,33 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
       ),
       body: Column(
         children: [
-          // ✅ Botón Toggle mejorado
           _buildToggleButton(),
-
-          // Contenido de la lista
+          
+          // ✅ BOTÓN DE FILTROS (solo cuando muestra MIS TRABAJOS)
+          if (mostrandoMisTrabajos) _buildFiltrosButton(),
+          
           Expanded(
             child: _buildContent(),
           ),
         ],
       ),
+      // ✅ BOTÓN FLOTANTE (solo cuando muestra MIS TRABAJOS)
+      floatingActionButton: mostrandoMisTrabajos 
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final resultado = await Navigator.pushNamed(context, '/crear-trabajo');
+                if (resultado == true) {
+                  _cargarTrabajos();
+                }
+              },
+              backgroundColor: const Color(0xFFC5414B),
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text(
+                'Crear Trabajo',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            )
+          : null,
     );
   }
 
@@ -258,6 +600,62 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
     );
   }
 
+  Widget _buildFiltrosButton() {
+    int filtrosActivos = 0;
+    if (_filtroEstado != 'TODOS') filtrosActivos++;
+    if (_ordenamiento != 'MAS_NUEVO') filtrosActivos++;
+    if (_ubicacionSeleccionada != null) filtrosActivos++;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: ElevatedButton.icon(
+        onPressed: _mostrarFiltros,
+        icon: Stack(
+          children: [
+            const Icon(Icons.filter_list, size: 20),
+            if (filtrosActivos > 0)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '$filtrosActivos',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFC5414B),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        label: Text(
+          filtrosActivos > 0 
+              ? 'Filtros ($filtrosActivos)' 
+              : 'Filtros y Ordenamiento',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFFC5414B),
+          minimumSize: const Size(double.infinity, 50),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent() {
     if (isLoading) {
       return const Center(
@@ -283,7 +681,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
+                color: mostrandoMisTrabajos ? Colors.white : Colors.grey[800],
               ),
             ),
             const SizedBox(height: 8),
@@ -294,7 +692,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: mostrandoMisTrabajos ? Colors.grey[400] : Colors.grey[600],
                 ),
               ),
             ),
@@ -325,25 +723,20 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
             const SizedBox(height: 16),
             Text(
               mostrandoMisTrabajos
-                  ? 'No tienes trabajos publicados'
+                  ? 'No hay trabajos'
                   : 'No hay trabajos disponibles',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey,
+                color: mostrandoMisTrabajos ? Colors.white : Colors.grey,
               ),
             ),
             if (mostrandoMisTrabajos) ...[
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Navegar a crear trabajo
-                  Navigator.pushNamed(context, '/crear-trabajo');
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Crear Trabajo'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFC5414B),
-                ),
+              const SizedBox(height: 8),
+              Text(
+                _filtroEstado != 'TODOS' || _ubicacionSeleccionada != null
+                    ? 'Prueba con otros filtros'
+                    : 'Crea tu primer trabajo',
+                style: TextStyle(fontSize: 15, color: Colors.grey[400]),
               ),
             ],
           ],
@@ -354,37 +747,39 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
     return RefreshIndicator(
       onRefresh: _cargarTrabajos,
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: mostrandoMisTrabajos ? 16 : 12,
+          vertical: mostrandoMisTrabajos ? 16 : 8,
+        ),
         itemCount: trabajos.length,
         itemBuilder: (context, index) {
           final trabajo = trabajos[index];
-          return _buildTrabajoCard(trabajo);
+          
+          // ✅ SI ES MIS TRABAJOS → USA WIDGET COMPARTIDO
+          if (mostrandoMisTrabajos) {
+            return TrabajoPropioCard(
+              trabajo: trabajo,
+              onDeleted: _cargarTrabajos,
+            );
+          }
+          
+          // ✅ SI ES EXPLORAR → USA CARD NORMAL
+          return _buildTrabajoAjenoCard(trabajo);
         },
       ),
     );
   }
 
-  Widget _buildTrabajoCard(TrabajoModel trabajo) {
+  // ✅ CARD PARA TRABAJOS AJENOS (explorar)
+  Widget _buildTrabajoAjenoCard(TrabajoModel trabajo) {
     return GestureDetector(
       onTap: () {
-        // ✅✅✅ NAVEGACIÓN CONDICIONAL CORREGIDA ✅✅✅
-        if (mostrandoMisTrabajos) {
-          // 🟢 Si estamos en "MIS TRABAJOS" → ir a detalle PROPIO
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DetalleTrabajoPropio(trabajo: trabajo),
-            ),
-          );
-        } else {
-          // 🔵 Si estamos en "EXPLORAR" → ir a detalle AJENO
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DetalleTrabajoScreen(trabajo: trabajo),
-            ),
-          );
-        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetalleTrabajoScreen(trabajo: trabajo),
+          ),
+        );
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -402,19 +797,13 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ Header con usuario que publicó
             _buildCardHeader(trabajo),
-
-            // ✅ Imagen o placeholder
             _buildCardImage(trabajo),
-
-            // ✅ Contenido del card
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Título y categoría
                   Text(
                     trabajo.titulo,
                     style: const TextStyle(
@@ -433,10 +822,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                       color: Colors.grey[600],
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
-                  // Descripción
                   Text(
                     trabajo.descripcion,
                     maxLines: 2,
@@ -447,22 +833,12 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                       height: 1.4,
                     ),
                   ),
-
                   const SizedBox(height: 16),
-
-                  // ✅ Fechas y horarios
-                  if (trabajo.fechaInicio != null ||
-                      trabajo.horarioInicio != null)
+                  if (trabajo.fechaInicio != null)
                     _buildFechasHorarios(trabajo),
-
                   const SizedBox(height: 12),
-
-                  // ✅ Salario
                   _buildSalario(trabajo),
-
                   const SizedBox(height: 16),
-
-                  // ✅ Puestos disponibles (emojis)
                   _buildPuestosDisponibles(trabajo),
                 ],
               ),
@@ -472,10 +848,6 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
       ),
     );
   }
-
-  // ========================================
-  // WIDGETS AUXILIARES DEL CARD
-  // ========================================
 
   Widget _buildCardHeader(TrabajoModel trabajo) {
     return Container(
@@ -526,7 +898,6 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
               ],
             ),
           ),
-          // Badge de urgencia si aplica
           if (trabajo.urgencia.toUpperCase() == 'ALTA')
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -592,24 +963,22 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
       ),
       child: Row(
         children: [
-          if (trabajo.fechaInicio != null) ...[
-            Icon(Icons.calendar_today, size: 14, color: Colors.blue.shade700),
-            const SizedBox(width: 6),
-            Text(
-              _formatDateRange(trabajo.fechaInicio, trabajo.fechaFin),
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.blue.shade900,
-                fontWeight: FontWeight.w500,
-              ),
+          Icon(Icons.calendar_today, size: 14, color: Colors.blue.shade700),
+          const SizedBox(width: 6),
+          Text(
+            _formatDateRange(trabajo.fechaInicio, trabajo.fechaFin),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.blue.shade900,
+              fontWeight: FontWeight.w500,
             ),
-          ],
-          if (trabajo.horarioInicio != null) ...[
+          ),
+          if (trabajo.horarioInicio.isNotEmpty) ...[
             const SizedBox(width: 16),
             Icon(Icons.access_time, size: 14, color: Colors.blue.shade700),
             const SizedBox(width: 6),
             Text(
-              '${trabajo.horarioInicio} - ${trabajo.horarioFin ?? ""}',
+              '${trabajo.horarioInicio} - ${trabajo.horarioFin}',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.blue.shade900,
@@ -623,7 +992,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
   }
 
   Widget _buildSalario(TrabajoModel trabajo) {
-    final cantidadPersonas = trabajo.cantidadEmpleadosRequeridos ?? 1;
+    final cantidadPersonas = trabajo.cantidadEmpleadosRequeridos;
     final esPorPersona = cantidadPersonas > 1;
 
     return Row(
@@ -699,7 +1068,6 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                 ),
               ),
               const SizedBox(width: 4),
-              // ✅ EMOJIS DE PUESTOS
               ...List.generate(
                 totales,
                 (index) => Padding(
@@ -728,9 +1096,27 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
     );
   }
 
-  // ========================================
-  // HELPERS
-  // ========================================
+  Map<int, Map<String, int>> _puestosCache = {};
+
+  Future<Map<String, int>> _obtenerPuestos(int trabajoId) async {
+    if (_puestosCache.containsKey(trabajoId)) {
+      return _puestosCache[trabajoId]!;
+    }
+
+    try {
+      final puestos =
+          await PostulacionService.obtenerPuestosDisponibles(trabajoId);
+      _puestosCache[trabajoId] = puestos;
+      return puestos;
+    } catch (e) {
+      print('Error obteniendo puestos: $e');
+      return {
+        'totales': 1,
+        'ocupados': 0,
+        'disponibles': 1,
+      };
+    }
+  }
 
   String _formatDateRange(DateTime inicio, DateTime? fin) {
     final months = [

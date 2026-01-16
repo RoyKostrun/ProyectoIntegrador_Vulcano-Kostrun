@@ -366,4 +366,81 @@ class UserService {
           return data.first['disponibilidad'] as String;
         });
   }
+
+  // ==============================================================
+  // 🔹 ACTUALIZAR PERSONA (CONFIGURACIÓN)
+  // ==============================================================
+  Future<void> actualizarPersona(
+    int idUsuario,
+    Map<String, dynamic> datos,
+  ) async {
+    try {
+      datos['updated_at'] = DateTime.now().toIso8601String();
+
+      final response = await _supabase
+          .from('usuario_persona')
+          .update(datos)
+          .eq('id_usuario', idUsuario)
+          .select();
+
+      if (response.isEmpty) {
+        throw Exception('No se pudo actualizar la persona');
+      }
+
+      print('✅ Persona actualizada: $idUsuario');
+    } catch (e) {
+      print('❌ Error actualizando persona: $e');
+      rethrow;
+    }
+  }
+
+  // ==============================================================
+  // 🔹 ACTUALIZAR TELÉFONO
+  // ==============================================================
+  Future<void> actualizarTelefono(String? telefono) async {
+    try {
+      final userData = await AuthService.getCurrentUserData();
+      if (userData == null) throw Exception('Usuario no autenticado');
+
+      await _supabase
+          .from('usuario')
+          .update({
+            'telefono': telefono,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id_usuario', userData.idUsuario);
+
+      print('✅ Teléfono actualizado');
+    } catch (e) {
+      print('❌ Error actualizando teléfono: $e');
+      rethrow;
+    }
+  }
+
+  // ==============================================================
+  // 🔹 ACTUALIZAR EMAIL
+  // ==============================================================
+  Future<void> actualizarEmail(String nuevoEmail) async {
+    try {
+      await _supabase.auth.updateUser(
+        UserAttributes(email: nuevoEmail),
+      );
+
+      final userData = await AuthService.getCurrentUserData();
+      if (userData != null) {
+        await _supabase
+            .from('usuario')
+            .update({
+              'email': nuevoEmail,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id_usuario', userData.idUsuario);
+      }
+
+      print('✅ Email actualizado: $nuevoEmail');
+    } catch (e) {
+      print('❌ Error actualizando email: $e');
+      rethrow;
+    }
+  }
 }

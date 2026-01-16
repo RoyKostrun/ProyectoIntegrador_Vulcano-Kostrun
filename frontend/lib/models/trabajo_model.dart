@@ -1,5 +1,5 @@
 // lib/models/trabajo_model.dart
-// ✅ VERSIÓN FINAL - Con parse correcto de fechas
+// ✅ VERSIÓN CORREGIDA con ubicacionId
 
 import 'package:flutter/material.dart';
 
@@ -37,6 +37,7 @@ class TrabajoModel {
   final String? imagenUrl;
   final String? periodoPago;
   final String? nombreEmpleador;
+  final int? ubicacionId; // ✅ NUEVO CAMPO
 
   TrabajoModel({
     required this.id,
@@ -63,6 +64,7 @@ class TrabajoModel {
     this.imagenUrl,
     this.periodoPago,
     this.nombreEmpleador,
+    this.ubicacionId, // ✅ NUEVO CAMPO
   });
 
   factory TrabajoModel.fromJson(Map<String, dynamic> json) {
@@ -70,7 +72,6 @@ class TrabajoModel {
       id: json['id_trabajo'] ?? 0,
       titulo: json['titulo'] ?? '',
       descripcion: json['descripcion'] ?? '',
-      // ✅ CORREGIDO: Parse de fechas
       fechaInicio: _parseDateTime(json['fecha_inicio'])!,
       fechaFin: _parseDateTime(json['fecha_fin']),
       horarioInicio: json['horario_inicio'] ?? '',
@@ -105,10 +106,10 @@ class TrabajoModel {
               : null),
       nombreEmpleador:
           json['nombre_empleador_procesado'] ?? json['nombre_empleador'],
+      ubicacionId: json['ubicacion_id'], // ✅ NUEVO CAMPO
     );
   }
 
-  // ✅ NUEVO: Helper para parsear fechas que pueden venir como String o DateTime
   static DateTime? _parseDateTime(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
@@ -213,7 +214,6 @@ class TrabajoModel {
     }
   }
 
-  // Getter de compatibilidad
   String get estado => estadoTexto;
 
   bool get esVisibleParaEmpleados =>

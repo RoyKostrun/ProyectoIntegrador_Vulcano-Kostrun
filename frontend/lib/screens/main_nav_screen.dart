@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'jobs/navegador_trabajos_screen.dart';
 import 'jobs/create_trabajo_screen.dart';
-import 'user/user_menu_screen.dart';
+import 'user/menu_perfil/user_menu_screen.dart';
 import '../services/trabajo_service.dart'; // ✅ AGREGAR
 
 class MainNavScreen extends StatefulWidget {

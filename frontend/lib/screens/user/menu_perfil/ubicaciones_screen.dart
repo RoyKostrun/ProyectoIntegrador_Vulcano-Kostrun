@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/ubicacion_service.dart';
+import '../../../services/ubicacion_service.dart';
 
 class UbicacionesScreen extends StatefulWidget {
   const UbicacionesScreen({Key? key}) : super(key: key);
@@ -38,7 +38,7 @@ class _UbicacionesScreenState extends State<UbicacionesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: const Color.fromARGB(255, 235, 176, 181),
       appBar: AppBar(
         backgroundColor: const Color(0xFFC5414B),
         elevation: 0,

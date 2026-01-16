@@ -1,5 +1,5 @@
 // lib/services/trabajo_service.dart
-// ✅ ACTUALIZADO con sistema de estados
+// ✅ ACTUALIZADO con sistema de estados y getTrabajoById
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trabajo_model.dart';
@@ -22,6 +22,67 @@ class TrabajoService {
     } catch (e) {
       print('❌ Error actualizando estados: $e');
       // No lanzar error, es una operación de background
+    }
+  }
+
+  // ============================================
+  // 🔍 OBTENER TRABAJO POR ID (NUEVO)
+  // ============================================
+  
+  Future<TrabajoModel?> getTrabajoById(int idTrabajo) async {
+    try {
+      print('🔍 Obteniendo trabajo con ID: $idTrabajo');
+
+      final response = await supabase
+          .from('trabajo')
+          .select('''
+            *,
+            rubro:id_rubro(id_rubro, nombre),
+            ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
+            pago:id_pago(id_pago, monto, metodo, estado, periodo),
+            usuario!trabajo_empleador_id_fkey(
+              id_usuario,
+              usuario_persona(
+                nombre,
+                apellido
+              ),
+              usuario_empresa(
+                nombre_corporativo
+              )
+            )
+          ''')
+          .eq('id_trabajo', idTrabajo)
+          .single();
+
+      // Procesar nombre del empleador
+      String? nombreEmpleador;
+      
+      if (response['usuario'] != null) {
+        final usuario = response['usuario'];
+        
+        if (usuario['usuario_persona'] != null && 
+            (usuario['usuario_persona'] is List && 
+             (usuario['usuario_persona'] as List).isNotEmpty)) {
+          final persona = (usuario['usuario_persona'] as List)[0];
+          nombreEmpleador = '${persona['nombre']} ${persona['apellido']}';
+        } 
+        else if (usuario['usuario_empresa'] != null && 
+                 (usuario['usuario_empresa'] is List && 
+                  (usuario['usuario_empresa'] as List).isNotEmpty)) {
+          final empresa = (usuario['usuario_empresa'] as List)[0];
+          nombreEmpleador = empresa['nombre_corporativo'];
+        }
+      }
+      
+      response['nombre_empleador_procesado'] = nombreEmpleador;
+      
+      print('✅ Trabajo encontrado: ${response['titulo']}');
+      
+      return TrabajoModel.fromJson(response);
+      
+    } catch (e) {
+      print('❌ Error al obtener trabajo por ID: $e');
+      return null;
     }
   }
 

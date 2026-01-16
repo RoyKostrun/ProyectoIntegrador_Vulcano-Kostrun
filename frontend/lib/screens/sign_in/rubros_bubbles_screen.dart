@@ -1,4 +1,5 @@
 //lib/screens/login/rubros_bubbles_screen.dart
+// ✅ ACTUALIZADO: Soporta modo onboarding y modo edición
 import 'package:flutter/material.dart';
 import '../../models/rubro_model.dart';
 import '../../services/rubro_service.dart';
@@ -13,9 +14,13 @@ class RubrosBubblesScreen extends StatefulWidget {
 }
 
 class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
-  // ✅ NUEVO: Variables para recibir los roles
+  // Variables para roles (solo en modo onboarding)
   bool _esEmpleador = false;
   bool _esEmpleado = false;
+
+  // Variables para modo edición
+  bool _modoEdicion = false;
+  List<String> _rubrosExistentes = [];
 
   Set<int> selectedRubros = {};
   Set<int> hoveredRubros = {};
@@ -30,7 +35,6 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
     _loadRubros();
   }
 
-  // ✅ NUEVO: Recibir los roles desde la navegación
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -38,10 +42,20 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
+      // Modo onboarding
       _esEmpleador = args['esEmpleador'] ?? false;
       _esEmpleado = args['esEmpleado'] ?? false;
-      print(
-          '📋 Roles recibidos: empleador=$_esEmpleador, empleado=$_esEmpleado');
+      
+      // Modo edición
+      _modoEdicion = args['modoEdicion'] ?? false;
+      _rubrosExistentes = List<String>.from(args['rubrosExistentes'] ?? []);
+      
+      print('📋 Modo: ${_modoEdicion ? "EDICIÓN" : "ONBOARDING"}');
+      if (_modoEdicion) {
+        print('📋 Rubros existentes: $_rubrosExistentes');
+      } else {
+        print('📋 Roles: empleador=$_esEmpleador, empleado=$_esEmpleado');
+      }
     }
   }
 
@@ -90,8 +104,8 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
     await _loadRubros();
   }
 
-  // ✅ MÉTODO PARA CONTINUAR Y GUARDAR TODO
-  Future<void> _continueWithSelectedRubros() async {
+  // ✅ CONTINUAR EN MODO ONBOARDING
+  Future<void> _continuarOnboarding() async {
     if (selectedRubros.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -105,41 +119,38 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
     setState(() => isSaving = true);
 
     try {
-      // ✅ 1. GUARDAR ROLES
-      print(
-          '💾 Guardando roles: empleador=$_esEmpleador, empleado=$_esEmpleado');
+      // 1. Guardar roles
+      print('💾 Guardando roles: empleador=$_esEmpleador, empleado=$_esEmpleado');
       await AuthService.updateUserRoles(
         esEmpleador: _esEmpleador,
         esEmpleado: _esEmpleado,
       );
 
-      // ✅ 2. GUARDAR RUBROS
+      // 2. Guardar rubros
       final nombresSeleccionados = rubros
           .where((r) => selectedRubros.contains(r.idRubro))
           .map((r) => r.nombre)
           .toList();
 
       print('💾 Guardando rubros: $nombresSeleccionados');
-      await AuthService.saveUserRubros(nombresSeleccionados);
+      await RubroService.saveUserRubros(nombresSeleccionados);
 
-      // ✅ 3. MARCAR ONBOARDING COMPLETADO
+      // 3. Marcar onboarding completado
       print('✅ Marcando onboarding como completado');
       await AuthService.markOnboardingCompleted();
 
       if (mounted) {
         print('🚀 Navegando a /main-nav');
-
-        // ✅ NAVEGAR A LA PANTALLA PRINCIPAL
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/main-nav',
-          (route) => false,
-          arguments: {'initialTab': 0},
-        );
-    }
-  });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/main-nav',
+              (route) => false,
+              arguments: {'initialTab': 0},
+            );
+          }
+        });
       }
     } catch (error) {
       print('❌ Error en onboarding: $error');
@@ -158,6 +169,64 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
     }
   }
 
+  // ✅ GUARDAR EN MODO EDICIÓN
+  Future<void> _guardarEdicion() async {
+    if (selectedRubros.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor selecciona al menos un rubro'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => isSaving = true);
+
+    try {
+      // Agregar solo los nuevos rubros seleccionados
+      for (var rubroId in selectedRubros) {
+        await RubroService.addUserRubro(rubroId);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Rubros agregados correctamente'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // Volver con resultado exitoso
+        Navigator.pop(context, true);
+      }
+    } catch (error) {
+      print('❌ Error al guardar rubros: $error');
+
+      if (mounted) {
+        setState(() => isSaving = false);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $error'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  }
+
+  // ✅ MÉTODO UNIFICADO PARA CONTINUAR
+  Future<void> _continuar() async {
+    if (_modoEdicion) {
+      await _guardarEdicion();
+    } else {
+      await _continuarOnboarding();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -165,10 +234,17 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF374151),
         elevation: 0,
-        automaticallyImplyLeading: false, // ✅ AGREGADO: Elimina botón de atrás
-        title: const Text(
-          'Selecciona Rubros',
-          style: TextStyle(
+        // ✅ En modo edición mostrar botón back, en onboarding no
+        automaticallyImplyLeading: _modoEdicion,
+        leading: _modoEdicion
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
+        title: Text(
+          _modoEdicion ? 'Agregar Rubros' : 'Selecciona Rubros',
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
@@ -193,9 +269,11 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
                     children: [
-                      const Text(
-                        'Explora Nuestros Rubros',
-                        style: TextStyle(
+                      Text(
+                        _modoEdicion
+                            ? 'Agrega Nuevos Rubros'
+                            : 'Explora Nuestros Rubros',
+                        style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -204,7 +282,9 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Selecciona uno o más rubros de tu interés',
+                        _modoEdicion
+                            ? 'Selecciona rubros adicionales a tu perfil'
+                            : 'Selecciona uno o más rubros de tu interés',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[300],
@@ -246,7 +326,7 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(24.0),
                     child: ElevatedButton(
-                      onPressed: isSaving ? null : _continueWithSelectedRubros,
+                      onPressed: isSaving ? null : _continuar,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFC5414B),
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -279,7 +359,9 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
                               ],
                             )
                           : Text(
-                              'Continuar (${selectedRubros.length})',
+                              _modoEdicion
+                                  ? 'Guardar (${selectedRubros.length})'
+                                  : 'Continuar (${selectedRubros.length})',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
@@ -295,18 +377,20 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
             if (isSaving)
               Container(
                 color: Colors.black.withOpacity(0.5),
-                child: const Center(
+                child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(
+                      const CircularProgressIndicator(
                         valueColor:
                             AlwaysStoppedAnimation<Color>(Color(0xFFC5414B)),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
-                        'Completando configuración...',
-                        style: TextStyle(
+                        _modoEdicion
+                            ? 'Guardando rubros...'
+                            : 'Completando configuración...',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -408,18 +492,56 @@ class _RubrosBubblesScreenState extends State<RubrosBubblesScreen> {
       );
     }
 
+    // ✅ Filtrar rubros en modo edición (no mostrar los que ya tiene)
+    final rubrosDisponibles = _modoEdicion
+        ? rubros.where((r) => !_rubrosExistentes.contains(r.nombre)).toList()
+        : rubros;
+
+    if (_modoEdicion && rubrosDisponibles.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.check_circle_outline,
+              color: Color(0xFFC5414B),
+              size: 64,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '¡Ya tienes todos los rubros!',
+              style: TextStyle(
+                color: Colors.grey[300],
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No hay rubros adicionales disponibles',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
       child: GridView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
           childAspectRatio: 1.0,
         ),
-        itemCount: rubros.length,
+        itemCount: rubrosDisponibles.length,
         itemBuilder: (context, index) {
-          final rubro = rubros[index];
+          final rubro = rubrosDisponibles[index];
           final isSelected = selectedRubros.contains(rubro.idRubro);
           final isHovered = hoveredRubros.contains(rubro.idRubro);
 

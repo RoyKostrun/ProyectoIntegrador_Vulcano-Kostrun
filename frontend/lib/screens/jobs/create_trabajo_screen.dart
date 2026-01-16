@@ -450,7 +450,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     // Mostrar loading mientras verificamos si es empleador
     if (isCheckingEmpleador) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor:  const Color.fromARGB(255, 235, 176, 181),
         appBar: AppBar(
           backgroundColor: const Color(0xFFC5414B),
           elevation: 0,
@@ -465,7 +465,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     // Si NO es empleador, mostrar pantalla de bloqueo
     if (!esEmpleador) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: const Color.fromARGB(255, 235, 176, 181),
         appBar: AppBar(
           backgroundColor: const Color(0xFFC5414B),
           elevation: 0,
@@ -556,7 +556,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     // Si ES empleador, mostrar formulario normal
     if (isLoadingRubros || isLoadingUbicaciones) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: const Color.fromARGB(255, 235, 176, 181),
         appBar: AppBar(
           backgroundColor: const Color(0xFFC5414B),
           elevation: 0,
@@ -569,7 +569,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: const Color.fromARGB(255, 235, 176, 181),
       appBar: AppBar(
         backgroundColor: const Color(0xFFC5414B),
         elevation: 0,

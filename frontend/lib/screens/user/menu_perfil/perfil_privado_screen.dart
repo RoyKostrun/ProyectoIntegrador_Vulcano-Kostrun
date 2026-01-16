@@ -1,9 +1,9 @@
-// lib/screens/user/perfil_screen.dart
+// lib/screens/user/menu_perfil/perfil_screen.dart
 import 'package:flutter/material.dart';
-import '../../services/user_service.dart';
-import '../../models/user_model.dart';
-import '../../widgets/disponibilidad_switch.dart';
-import '../../widgets/disponibilidad_badge.dart';
+import '../../../services/user_service.dart';
+import '../../../models/user_model.dart';
+import '../../../widgets/disponibilidad_switch.dart';
+import '../../../widgets/disponibilidad_badge.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({Key? key}) : super(key: key);
@@ -58,7 +58,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Mi Perfil'),
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFC5414B),
           foregroundColor: Colors.black,
           elevation: 0,
           leading: IconButton(
@@ -81,7 +81,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Mi Perfil'),
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFC5414B),
           foregroundColor: Colors.black,
           elevation: 0,
           leading: IconButton(
@@ -131,10 +131,10 @@ class _PerfilScreenState extends State<PerfilScreen> {
     final isPersona = _usuario!.isPersona;
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color.fromARGB(255, 235, 176, 181),
       appBar: AppBar(
         title: const Text('Mi Perfil'),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFC5414B),
         foregroundColor: Colors.black,
         elevation: 0,
         leading: IconButton(

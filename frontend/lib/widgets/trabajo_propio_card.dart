@@ -32,7 +32,6 @@ class TrabajoPropioCard extends StatelessWidget {
   }
 
   String _getEstadoLabel(EstadoPublicacion estado) {
-    
     switch (estado) {
       case EstadoPublicacion.PUBLICADO:
         return 'Publicado';
@@ -126,7 +125,6 @@ class TrabajoPropioCard extends StatelessWidget {
             ),
           );
           
-          // Llamar callback para recargar lista
           onDeleted?.call();
         }
       } catch (e) {
@@ -175,20 +173,8 @@ class TrabajoPropioCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Imagen
-            if (trabajo.imagenUrl != null)
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: Image.network(
-                  trabajo.imagenUrl!,
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(vencido),
-                ),
-              )
-            else
-              _buildImagePlaceholder(vencido),
+            // ✅ IMAGEN - PRIORIZA FOTO PRINCIPAL
+            _buildImageSection(vencido),
 
             // Contenido
             Padding(
@@ -340,7 +326,7 @@ class TrabajoPropioCard extends StatelessWidget {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: vencido ? const Color.fromARGB(255, 0, 0, 0) : const Color(0xFFC5414B),
                             side: BorderSide(
-                              color: vencido ? const Color.fromARGB(255, 255, 255, 255)! : const Color(0xFFC5414B),
+                              color: vencido ? const Color.fromARGB(255, 255, 255, 255) : const Color(0xFFC5414B),
                             ),
                           ),
                         ),
@@ -371,6 +357,46 @@ class TrabajoPropioCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // ✅ NUEVO MÉTODO: Construir sección de imagen (prioriza foto principal)
+  Widget _buildImageSection(bool vencido) {
+    final imageUrl = trabajo.fotoPrincipalUrl ?? trabajo.imagenUrl;
+    
+    if (imageUrl != null) {
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        child: Image.network(
+          imageUrl,
+          height: 180,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              height: 180,
+              width: double.infinity,
+              color: Colors.grey[200],
+              child: Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                      : null,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFC5414B)),
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            print('⚠️ Error cargando imagen: $error');
+            return _buildImagePlaceholder(vencido);
+          },
+        ),
+      );
+    }
+    
+    return _buildImagePlaceholder(vencido);
   }
 
   Widget _buildImagePlaceholder(bool vencido) {

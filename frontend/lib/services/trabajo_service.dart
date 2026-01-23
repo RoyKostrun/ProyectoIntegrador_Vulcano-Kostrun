@@ -1,5 +1,5 @@
 // lib/services/trabajo_service.dart
-// ✅ ACTUALIZADO con sistema de estados y getTrabajoById
+// ✅ ACTUALIZADO con sistema de estados
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trabajo_model.dart';
@@ -11,13 +11,13 @@ class TrabajoService {
   // ============================================
   // 🔄 ACTUALIZAR ESTADOS (llamar al iniciar app)
   // ============================================
-  
+
   Future<void> actualizarEstadosTrabajos() async {
     try {
       print('🔄 Actualizando estados de trabajos...');
-      
+
       await supabase.rpc('actualizar_estados_trabajos');
-      
+
       print('✅ Estados actualizados correctamente');
     } catch (e) {
       print('❌ Error actualizando estados: $e');
@@ -26,60 +26,54 @@ class TrabajoService {
   }
 
   // ============================================
-  // 🔍 OBTENER TRABAJO POR ID (NUEVO)
-  // ============================================
-  
+// 🔍 OBTENER TRABAJO POR ID
+// ============================================
+
   Future<TrabajoModel?> getTrabajoById(int idTrabajo) async {
     try {
       print('🔍 Obteniendo trabajo con ID: $idTrabajo');
 
-      final response = await supabase
-          .from('trabajo')
-          .select('''
-            *,
-            rubro:id_rubro(id_rubro, nombre),
-            ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
-            pago:id_pago(id_pago, monto, metodo, estado, periodo),
-            usuario!trabajo_empleador_id_fkey(
-              id_usuario,
-              usuario_persona(
-                nombre,
-                apellido
-              ),
-              usuario_empresa(
-                nombre_corporativo
-              )
+      final response = await supabase.from('trabajo').select('''
+          *,
+          rubro:id_rubro(id_rubro, nombre),
+          ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
+          pago:id_pago(id_pago, monto, metodo, estado, periodo),
+          usuario!trabajo_empleador_id_fkey(
+            id_usuario,
+            usuario_persona(
+              nombre,
+              apellido
+            ),
+            usuario_empresa(
+              nombre_corporativo
             )
-          ''')
-          .eq('id_trabajo', idTrabajo)
-          .single();
+          )
+        ''').eq('id_trabajo', idTrabajo).single();
 
       // Procesar nombre del empleador
       String? nombreEmpleador;
-      
+
       if (response['usuario'] != null) {
         final usuario = response['usuario'];
-        
-        if (usuario['usuario_persona'] != null && 
-            (usuario['usuario_persona'] is List && 
-             (usuario['usuario_persona'] as List).isNotEmpty)) {
+
+        if (usuario['usuario_persona'] != null &&
+            (usuario['usuario_persona'] is List &&
+                (usuario['usuario_persona'] as List).isNotEmpty)) {
           final persona = (usuario['usuario_persona'] as List)[0];
           nombreEmpleador = '${persona['nombre']} ${persona['apellido']}';
-        } 
-        else if (usuario['usuario_empresa'] != null && 
-                 (usuario['usuario_empresa'] is List && 
-                  (usuario['usuario_empresa'] as List).isNotEmpty)) {
+        } else if (usuario['usuario_empresa'] != null &&
+            (usuario['usuario_empresa'] is List &&
+                (usuario['usuario_empresa'] as List).isNotEmpty)) {
           final empresa = (usuario['usuario_empresa'] as List)[0];
           nombreEmpleador = empresa['nombre_corporativo'];
         }
       }
-      
+
       response['nombre_empleador_procesado'] = nombreEmpleador;
-      
+
       print('✅ Trabajo encontrado: ${response['titulo']}');
-      
+
       return TrabajoModel.fromJson(response);
-      
     } catch (e) {
       print('❌ Error al obtener trabajo por ID: $e');
       return null;
@@ -89,65 +83,80 @@ class TrabajoService {
   // ============================================
   // 📋 TRAER TRABAJOS DE OTROS (solo PUBLICADO)
   // ============================================
-  
+
   Future<List<TrabajoModel>> getTrabajos({int from = 0, int to = 19}) async {
     try {
       final idUsuario = await AuthService.getCurrentUserId();
-      
+
       print('🔍 Cargando trabajos donde empleador_id != $idUsuario');
 
       final response = await supabase
           .from('trabajo')
           .select('''
-            *,
-            rubro:id_rubro(id_rubro, nombre),
-            ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
-            pago:id_pago(id_pago, monto, metodo, estado),
-            usuario!trabajo_empleador_id_fkey(
-              id_usuario,
-              usuario_persona(
-                nombre,
-                apellido
-              ),
-              usuario_empresa(
-                nombre_corporativo
-              )
-            )
-          ''')
+      *,
+      rubro:id_rubro(id_rubro, nombre),
+      ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
+      pago:id_pago(id_pago, monto, metodo, estado),
+      usuario!trabajo_empleador_id_fkey(
+        id_usuario,
+        usuario_persona(
+          nombre,
+          apellido
+        ),
+        usuario_empresa(
+          nombre_corporativo
+        )
+      ),
+      trabajo_foto(foto_url, es_principal)
+    ''')
           .neq('empleador_id', idUsuario)
-          .eq('estado_publicacion', 'PUBLICADO') // ✅ SOLO PUBLICADO
+          .eq('estado_publicacion', 'PUBLICADO')
           .range(from, to)
           .order('created_at', ascending: false);
 
       print('✅ Trabajos encontrados: ${(response as List).length}');
-      
-      return (response as List)
-          .map((json) {
-            // Procesar nombre del empleador
-            String? nombreEmpleador;
-            
-            if (json['usuario'] != null) {
-              final usuario = json['usuario'];
-              
-              if (usuario['usuario_persona'] != null && 
-                  (usuario['usuario_persona'] is List && 
-                   (usuario['usuario_persona'] as List).isNotEmpty)) {
-                final persona = (usuario['usuario_persona'] as List)[0];
-                nombreEmpleador = '${persona['nombre']} ${persona['apellido']}';
-              } 
-              else if (usuario['usuario_empresa'] != null && 
-                       (usuario['usuario_empresa'] is List && 
-                        (usuario['usuario_empresa'] as List).isNotEmpty)) {
-                final empresa = (usuario['usuario_empresa'] as List)[0];
-                nombreEmpleador = empresa['nombre_corporativo'];
-              }
+
+      return (response as List).map((json) {
+        // Procesar nombre del empleador
+        String? nombreEmpleador;
+
+        if (json['usuario'] != null) {
+          final usuario = json['usuario'];
+
+          if (usuario['usuario_persona'] != null &&
+              (usuario['usuario_persona'] is List &&
+                  (usuario['usuario_persona'] as List).isNotEmpty)) {
+            final persona = (usuario['usuario_persona'] as List)[0];
+            nombreEmpleador = '${persona['nombre']} ${persona['apellido']}';
+          } else if (usuario['usuario_empresa'] != null &&
+              (usuario['usuario_empresa'] is List &&
+                  (usuario['usuario_empresa'] as List).isNotEmpty)) {
+            final empresa = (usuario['usuario_empresa'] as List)[0];
+            nombreEmpleador = empresa['nombre_corporativo'];
+          }
+        }
+
+        json['nombre_empleador_procesado'] = nombreEmpleador;
+
+        String? fotoPrincipalUrl;
+        if (json['trabajo_foto'] != null) {
+          final fotos = json['trabajo_foto'];
+          if (fotos is List && fotos.isNotEmpty) {
+            try {
+              final fotoPrincipal = fotos.firstWhere(
+                (f) => f['es_principal'] == true,
+                orElse: () => fotos[0],
+              );
+              fotoPrincipalUrl = fotoPrincipal['foto_url'];
+            } catch (e) {
+              print('⚠️ Error procesando foto: $e');
             }
-            
-            json['nombre_empleador_procesado'] = nombreEmpleador;
-            
-            return TrabajoModel.fromJson(json);
-          })
-          .toList();
+          }
+        }
+        json['foto_principal_url'] = fotoPrincipalUrl;
+
+        return TrabajoModel.fromJson(json);
+      }).toList();
     } catch (e) {
       print('❌ Error al cargar trabajos: $e');
       throw Exception('Error al cargar trabajos: $e');
@@ -157,75 +166,86 @@ class TrabajoService {
   // ============================================
   // 📋 TRAER MIS TRABAJOS (todos los estados)
   // ============================================
-  
+
   Future<List<TrabajoModel>> getMisTrabajos({
-    int from = 0, 
+    int from = 0,
     int to = 19,
     String? filtroEstado, // Opcional: filtrar por estado
   }) async {
     try {
       final idUsuario = await AuthService.getCurrentUserId();
-      
+
       print('🔍 Cargando mis trabajos donde empleador_id = $idUsuario');
 
-      var query = supabase
-          .from('trabajo')
-          .select('''
-            *,
-            rubro:id_rubro(id_rubro, nombre),
-            ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
-            pago:id_pago(id_pago, monto, metodo, estado),
-            usuario!trabajo_empleador_id_fkey(
-              id_usuario,
-              usuario_persona(
-                nombre,
-                apellido
-              ),
-              usuario_empresa(
-                nombre_corporativo
-              )
-            )
-          ''')
-          .eq('empleador_id', idUsuario);
-
+      var query = supabase.from('trabajo').select('''
+  *,
+  rubro:id_rubro(id_rubro, nombre),
+  ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
+  pago:id_pago(id_pago, monto, metodo, estado),
+  usuario!trabajo_empleador_id_fkey(
+    id_usuario,
+    usuario_persona(
+      nombre,
+      apellido
+    ),
+    usuario_empresa(
+      nombre_corporativo
+    )
+  ),
+  trabajo_foto(foto_url, es_principal)
+''').eq('empleador_id', idUsuario);
       // Filtro opcional por estado
       if (filtroEstado != null) {
         query = query.eq('estado_publicacion', filtroEstado);
       }
 
-      final response = await query
-          .range(from, to)
-          .order('created_at', ascending: false);
+      final response =
+          await query.range(from, to).order('created_at', ascending: false);
 
       print('✅ Mis trabajos encontrados: ${(response as List).length}');
 
-      final trabajos = (response as List)
-          .map((json) {
-            // Procesar nombre del empleador
-            String? nombreEmpleador;
-            
-            if (json['usuario'] != null) {
-              final usuario = json['usuario'];
-              
-              if (usuario['usuario_persona'] != null && 
-                  (usuario['usuario_persona'] is List && 
-                   (usuario['usuario_persona'] as List).isNotEmpty)) {
-                final persona = (usuario['usuario_persona'] as List)[0];
-                nombreEmpleador = '${persona['nombre']} ${persona['apellido']}';
-              } 
-              else if (usuario['usuario_empresa'] != null && 
-                       (usuario['usuario_empresa'] is List && 
-                        (usuario['usuario_empresa'] as List).isNotEmpty)) {
-                final empresa = (usuario['usuario_empresa'] as List)[0];
-                nombreEmpleador = empresa['nombre_corporativo'];
-              }
+      final trabajos = (response as List).map((json) {
+        // Procesar nombre del empleador
+        String? nombreEmpleador;
+
+        if (json['usuario'] != null) {
+          final usuario = json['usuario'];
+
+          if (usuario['usuario_persona'] != null &&
+              (usuario['usuario_persona'] is List &&
+                  (usuario['usuario_persona'] as List).isNotEmpty)) {
+            final persona = (usuario['usuario_persona'] as List)[0];
+            nombreEmpleador = '${persona['nombre']} ${persona['apellido']}';
+          } else if (usuario['usuario_empresa'] != null &&
+              (usuario['usuario_empresa'] is List &&
+                  (usuario['usuario_empresa'] as List).isNotEmpty)) {
+            final empresa = (usuario['usuario_empresa'] as List)[0];
+            nombreEmpleador = empresa['nombre_corporativo'];
+          }
+        }
+
+        json['nombre_empleador_procesado'] = nombreEmpleador;
+
+// ✅ PROCESAR FOTO PRINCIPAL
+        String? fotoPrincipalUrl;
+        if (json['trabajo_foto'] != null) {
+          final fotos = json['trabajo_foto'];
+          if (fotos is List && fotos.isNotEmpty) {
+            try {
+              final fotoPrincipal = fotos.firstWhere(
+                (f) => f['es_principal'] == true,
+                orElse: () => fotos[0],
+              );
+              fotoPrincipalUrl = fotoPrincipal['foto_url'];
+            } catch (e) {
+              print('⚠️ Error procesando foto: $e');
             }
-            
-            json['nombre_empleador_procesado'] = nombreEmpleador;
-            
-            return TrabajoModel.fromJson(json);
-          })
-          .toList();
+          }
+        }
+        json['foto_principal_url'] = fotoPrincipalUrl;
+
+        return TrabajoModel.fromJson(json);
+      }).toList();
 
       // ✅ Ordenar por prioridad de estado
       trabajos.sort((a, b) {
@@ -262,13 +282,13 @@ class TrabajoService {
   // ============================================
   // 🔍 VERIFICAR SI PUEDE POSTULARSE
   // ============================================
-  
+
   Future<Map<String, dynamic>> puedePostularse(int trabajoId) async {
     try {
       final idUsuario = await AuthService.getCurrentUserId();
-      
-      final response = await supabase
-          .rpc('puede_postularse_a_trabajo', params: {
+
+      final response =
+          await supabase.rpc('puede_postularse_a_trabajo', params: {
         'p_trabajo_id': trabajoId,
         'p_usuario_id': idUsuario,
       });
@@ -279,7 +299,7 @@ class TrabajoService {
           'razon': response[0]['razon'] ?? '',
         };
       }
-      
+
       return {
         'puede': false,
         'razon': 'Error al verificar',
@@ -296,11 +316,11 @@ class TrabajoService {
   // ============================================
   // ❌ CANCELAR TRABAJO (cambiar estado a CANCELADO)
   // ============================================
-  
+
   Future<void> cancelarTrabajo(int idTrabajo) async {
     try {
       final idUsuario = await AuthService.getCurrentUserId();
-      
+
       // Verificar que sea el empleador
       final trabajo = await supabase
           .from('trabajo')
@@ -313,16 +333,12 @@ class TrabajoService {
       }
 
       // Cambiar estado a CANCELADO
-      await supabase
-          .from('trabajo')
-          .update({
-            'estado_publicacion': 'CANCELADO',
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id_trabajo', idTrabajo);
+      await supabase.from('trabajo').update({
+        'estado_publicacion': 'CANCELADO',
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id_trabajo', idTrabajo);
 
       print('✅ Trabajo cancelado');
-      
     } catch (e) {
       print('❌ Error al cancelar trabajo: $e');
       throw Exception('Error al cancelar trabajo: $e');
@@ -332,8 +348,8 @@ class TrabajoService {
   // ============================================
   // ✅ CREAR TRABAJO
   // ============================================
-  
-  Future<void> createTrabajo(Map<String, dynamic> datos) async {
+
+  Future<Map<String, dynamic>> createTrabajo(Map<String, dynamic> datos) async {
     try {
       print('📝 Iniciando creación de trabajo...');
 
@@ -347,11 +363,8 @@ class TrabajoService {
 
       print('💰 Creando pago: $pagoData');
 
-      final pagoResponse = await supabase
-          .from('pago')
-          .insert(pagoData)
-          .select()
-          .single();
+      final pagoResponse =
+          await supabase.from('pago').insert(pagoData).select().single();
 
       final idPago = pagoResponse['id_pago'];
       print('✅ Pago creado con ID: $idPago');
@@ -371,14 +384,18 @@ class TrabajoService {
         'metodo_pago': datos['metodo_pago'],
         'cantidad_empleados_requeridos': datos['cantidad_empleados_requeridos'],
         'urgencia': datos['urgencia'] ?? 'ESTANDAR',
-        'estado_publicacion': 'PUBLICADO', // ✅ Siempre inicia como PUBLICADO
+        'estado_publicacion': 'PUBLICADO',
       };
 
       print('📝 Creando trabajo: $trabajoData');
 
-      await supabase.from('trabajo').insert(trabajoData);
+      final trabajoResponse =
+          await supabase.from('trabajo').insert(trabajoData).select().single();
 
-      print('✅ Trabajo creado exitosamente');
+      print(
+          '✅ Trabajo creado exitosamente con ID: ${trabajoResponse['id_trabajo']}');
+
+      return trabajoResponse;
     } catch (e) {
       print('❌ Error al crear trabajo: $e');
       throw Exception('Error al crear trabajo: $e');
@@ -388,7 +405,7 @@ class TrabajoService {
   // ============================================
   // ✅ ACTUALIZAR TRABAJO
   // ============================================
-  
+
   Future<void> updateTrabajo(int idTrabajo, Map<String, dynamic> datos) async {
     try {
       final idUsuario = await AuthService.getCurrentUserId();
@@ -404,10 +421,7 @@ class TrabajoService {
         throw Exception('No tienes permiso para editar este trabajo');
       }
 
-      await supabase
-          .from('trabajo')
-          .update(datos)
-          .eq('id_trabajo', idTrabajo);
+      await supabase.from('trabajo').update(datos).eq('id_trabajo', idTrabajo);
 
       print('✅ Trabajo actualizado');
     } catch (e) {
@@ -419,7 +433,7 @@ class TrabajoService {
   // ============================================
   // ✅ ELIMINAR TRABAJO
   // ============================================
-  
+
   Future<void> deleteTrabajo(int idTrabajo) async {
     try {
       final idUsuario = await AuthService.getCurrentUserId();
@@ -438,17 +452,11 @@ class TrabajoService {
       final idPago = trabajo['id_pago'];
 
       // Eliminar el trabajo
-      await supabase
-          .from('trabajo')
-          .delete()
-          .eq('id_trabajo', idTrabajo);
+      await supabase.from('trabajo').delete().eq('id_trabajo', idTrabajo);
 
       // Eliminar el pago asociado
       if (idPago != null) {
-        await supabase
-            .from('pago')
-            .delete()
-            .eq('id_pago', idPago);
+        await supabase.from('pago').delete().eq('id_pago', idPago);
       }
 
       print('✅ Trabajo eliminado');

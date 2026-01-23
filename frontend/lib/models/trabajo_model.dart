@@ -37,7 +37,8 @@ class TrabajoModel {
   final String? imagenUrl;
   final String? periodoPago;
   final String? nombreEmpleador;
-  final int? ubicacionId; // ✅ NUEVO CAMPO
+  final int? ubicacionId;
+  final String? fotoPrincipalUrl;
 
   TrabajoModel({
     required this.id,
@@ -64,7 +65,8 @@ class TrabajoModel {
     this.imagenUrl,
     this.periodoPago,
     this.nombreEmpleador,
-    this.ubicacionId, // ✅ NUEVO CAMPO
+    this.ubicacionId,
+    this.fotoPrincipalUrl,
   });
 
   factory TrabajoModel.fromJson(Map<String, dynamic> json) {
@@ -106,7 +108,8 @@ class TrabajoModel {
               : null),
       nombreEmpleador:
           json['nombre_empleador_procesado'] ?? json['nombre_empleador'],
-      ubicacionId: json['ubicacion_id'], // ✅ NUEVO CAMPO
+      ubicacionId: json['ubicacion_id'],
+      fotoPrincipalUrl: json['foto_principal_url'],
     );
   }
 

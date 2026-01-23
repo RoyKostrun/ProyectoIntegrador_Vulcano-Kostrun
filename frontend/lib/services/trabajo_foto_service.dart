@@ -1,9 +1,7 @@
 // lib/services/trabajo_foto_service.dart
 // ✅ Servicio para manejar fotos de trabajos
 
-import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trabajo_foto_model.dart';
@@ -11,9 +9,12 @@ import '../models/trabajo_foto_model.dart';
 class TrabajoFotoService {
   final _supabase = Supabase.instance.client;
   final ImagePicker _picker = ImagePicker();
+  
+  // Getter para acceso interno
+  SupabaseClient get supabase => _supabase;
 
   // Constantes
-  static const int MAX_FOTOS = 5; // 1 principal + 4 secundarias
+  static const int MAX_FOTOS = 5;
   static const String BUCKET = 'trabajo-fotos';
 
   // ==============================================================
@@ -45,7 +46,6 @@ class TrabajoFotoService {
   // ==============================================================
   Future<List<XFile>> seleccionarMultiplesfotos() async {
     try {
-      // En web, usar galería simple
       if (kIsWeb) {
         final image = await _picker.pickImage(
           source: ImageSource.gallery,
@@ -56,7 +56,6 @@ class TrabajoFotoService {
         return image != null ? [image] : [];
       }
 
-      // En móvil, permitir selección múltiple
       final List<XFile> images = await _picker.pickMultiImage(
         maxWidth: 1024,
         maxHeight: 1024,
@@ -74,43 +73,32 @@ class TrabajoFotoService {
   // ==============================================================
   // 🔹 SUBIR UNA FOTO A STORAGE
   // ==============================================================
-  Future<String?> subirFoto(int idTrabajo, XFile imageFile) async {
+  Future<String> subirFoto(int idTrabajo, XFile imageFile) async {
     try {
-      final authUser = _supabase.auth.currentUser;
-      if (authUser == null) {
-        throw Exception('Usuario no autenticado');
-      }
+      final bytes = await imageFile.readAsBytes();
+      final fileExt = imageFile.path.split('.').last;
+      final userId = _supabase.auth.currentUser!.id; // ✅ CAMBIADO A _supabase
+      final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final filePath = 'trabajo_$idTrabajo/$fileName';
 
-      // Generar nombre único
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final extension = imageFile.path.split('.').last;
-      final fileName = 'trabajo_${idTrabajo}/${authUser.id}_$timestamp.$extension';
+      print('📤 Subiendo archivo a: $filePath');
 
-      print('📤 Subiendo foto: $fileName');
+      await _supabase.storage.from(BUCKET).uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+            ),
+          );
 
-      // Subir según plataforma
-      if (kIsWeb) {
-        final bytes = await imageFile.readAsBytes();
-        await _supabase.storage
-            .from(BUCKET)
-            .uploadBinary(fileName, bytes);
-      } else {
-        final file = File(imageFile.path);
-        await _supabase.storage
-            .from(BUCKET)
-            .upload(fileName, file);
-      }
+      final publicUrl = _supabase.storage.from(BUCKET).getPublicUrl(filePath);
 
-      // Obtener URL pública
-      final publicUrl = _supabase.storage
-          .from(BUCKET)
-          .getPublicUrl(fileName);
+      print('📸 URL pública generada: $publicUrl');
 
-      print('✅ Foto subida: $publicUrl');
       return publicUrl;
     } catch (e) {
-      print('❌ Error al subir foto: $e');
-      rethrow;
+      print('❌ Error subiendo foto: $e');
+      throw Exception('Error al subir foto: $e');
     }
   }
 
@@ -156,31 +144,23 @@ class TrabajoFotoService {
     final List<TrabajoFoto> fotosSubidas = [];
 
     try {
-      // Obtener fotos existentes
       final fotosExistentes = await obtenerFotosTrabajo(idTrabajo);
       final cantidadExistente = fotosExistentes.length;
 
-      // Validar límite
       if (cantidadExistente + imageFiles.length > MAX_FOTOS) {
         throw Exception(
-          'Máximo $MAX_FOTOS fotos. Ya tienes $cantidadExistente, '
-          'puedes agregar ${MAX_FOTOS - cantidadExistente} más.'
-        );
+            'Máximo $MAX_FOTOS fotos. Ya tienes $cantidadExistente, '
+            'puedes agregar ${MAX_FOTOS - cantidadExistente} más.');
       }
 
-      // Subir cada foto
       for (int i = 0; i < imageFiles.length; i++) {
         final imageFile = imageFiles[i];
-        
-        // Subir a Storage
-        final fotoUrl = await subirFoto(idTrabajo, imageFile);
-        if (fotoUrl == null) continue;
 
-        // Determinar orden y si es principal
+        final fotoUrl = await subirFoto(idTrabajo, imageFile);
+
         final orden = cantidadExistente + i;
         final esPrincipal = primeraEsPrincipal && i == 0 && cantidadExistente == 0;
 
-        // Guardar en BD
         final foto = await agregarFoto(
           idTrabajo: idTrabajo,
           fotoUrl: fotoUrl,
@@ -206,13 +186,11 @@ class TrabajoFotoService {
   // ==============================================================
   Future<void> establecerFotoPrincipal(int idFoto, int idTrabajo) async {
     try {
-      // Quitar principal de otras fotos
       await _supabase
           .from('trabajo_foto')
           .update({'es_principal': false})
           .eq('id_trabajo', idTrabajo);
 
-      // Establecer nueva principal
       await _supabase
           .from('trabajo_foto')
           .update({'es_principal': true})
@@ -230,19 +208,12 @@ class TrabajoFotoService {
   // ==============================================================
   Future<void> eliminarFoto(int idFoto, String fotoUrl) async {
     try {
-      // Eliminar de Storage
       final uri = Uri.parse(fotoUrl);
       final path = uri.pathSegments.sublist(3).join('/');
-      
-      await _supabase.storage
-          .from(BUCKET)
-          .remove([path]);
 
-      // Eliminar de BD
-      await _supabase
-          .from('trabajo_foto')
-          .delete()
-          .eq('id_foto', idFoto);
+      await _supabase.storage.from(BUCKET).remove([path]);
+
+      await _supabase.from('trabajo_foto').delete().eq('id_foto', idFoto);
 
       print('✅ Foto eliminada');
     } catch (e) {

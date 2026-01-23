@@ -1,12 +1,16 @@
 //lib/screens/jobs/create_trabajo_screen.dart
 
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../services/trabajo_service.dart';
 import '../../services/rubro_service.dart';
 import '../../services/ubicacion_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
+import '../../services/trabajo_foto_service.dart';
 import '../../components/primary_button.dart';
 
 class CrearTrabajoScreen extends StatefulWidget {
@@ -43,6 +47,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   List<String> rubros = [];
   List<Map<String, dynamic>> _ubicaciones = [];
   List<DateTime> fechasSeleccionadas = [];
+  
+  // ✅ NUEVAS VARIABLES PARA FOTOS
+  List<XFile> _fotosSeleccionadas = [];
+  bool _isUploadingFotos = false;
 
   final List<String> metodosPago = ['EFECTIVO', 'TRANSFERENCIA'];
 
@@ -82,7 +90,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     final resultado = await Navigator.pushNamed(context, '/unirse-empleadores');
 
     if (resultado == true && mounted) {
-      // El usuario se unió exitosamente, recargamos el estado
       await _verificarSiEsEmpleador();
     }
   }
@@ -125,6 +132,60 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         );
       }
     }
+  }
+
+  // ============================================
+  // ✅ MÉTODOS PARA GESTIÓN DE FOTOS
+  // ============================================
+  
+  Future<void> _seleccionarFotos() async {
+    try {
+      final TrabajoFotoService fotoService = TrabajoFotoService();
+      
+      if (_fotosSeleccionadas.length >= 5) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Máximo 5 fotos permitidas'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      
+      final fotos = await fotoService.seleccionarMultiplesfotos();
+      
+      if (fotos.isEmpty) return;
+      
+      final espacioDisponible = 5 - _fotosSeleccionadas.length;
+      if (fotos.length > espacioDisponible) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Solo puedes agregar $espacioDisponible foto(s) más'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      
+      setState(() {
+        _fotosSeleccionadas.addAll(fotos);
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ ${fotos.length} foto(s) seleccionada(s)'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      print('❌ Error al seleccionar fotos: $e');
+    }
+  }
+
+  void _eliminarFoto(int index) {
+    setState(() {
+      _fotosSeleccionadas.removeAt(index);
+    });
   }
 
   bool get esRangoDias => fechasSeleccionadas.length > 1;
@@ -242,36 +303,28 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         .then((_) => _cargarUbicaciones());
   }
 
-// ✅ NUEVO: Método para crear ubicación y preservar formulario
   Future<void> _crearNuevaUbicacion() async {
-    // Ir a crear ubicación y esperar resultado
     final nuevaUbicacion = await Navigator.pushNamed(
       context,
       '/crear-ubicacion',
     );
 
-    // Si se creó una ubicación
     if (nuevaUbicacion != null && mounted) {
       print('✅ Nueva ubicación creada: $nuevaUbicacion');
 
-      // Recargar la lista de ubicaciones
       await _cargarUbicaciones();
 
-      // Buscar y seleccionar la nueva ubicación
       setState(() {
         if (nuevaUbicacion is Map<String, dynamic>) {
           final idNuevaUbicacion = nuevaUbicacion['id_ubicacion'].toString();
 
-          // Seleccionar la nueva ubicación
           ubicacionSeleccionada = idNuevaUbicacion;
 
-          // Construir dirección completa
           direccionCompleta =
               '${nuevaUbicacion['calle']} ${nuevaUbicacion['numero']}, ${nuevaUbicacion['ciudad']}, ${nuevaUbicacion['provincia']}';
         }
       });
 
-      // Mostrar confirmación
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('✅ Nueva ubicación seleccionada'),
@@ -385,7 +438,33 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         'empleador_id': idUsuario,
       };
 
-      await trabajoService.createTrabajo(datosEnvio);
+      // ✅ CREAR TRABAJO
+      final trabajoCreado = await trabajoService.createTrabajo(datosEnvio);
+      final trabajoId = trabajoCreado['id_trabajo'] as int;
+
+      print('✅ Trabajo creado con ID: $trabajoId');
+
+      // ✅ SUBIR FOTOS SI HAY SELECCIONADAS
+      if (_fotosSeleccionadas.isNotEmpty && mounted) {
+        setState(() => _isUploadingFotos = true);
+        
+        try {
+          final TrabajoFotoService fotoService = TrabajoFotoService();
+          await fotoService.subirFotosMultiples(
+            idTrabajo: trabajoId,
+            imageFiles: _fotosSeleccionadas,
+            primeraEsPrincipal: true,
+          );
+          print('✅ Fotos subidas exitosamente');
+        } catch (e) {
+          print('⚠️ Error al subir fotos: $e');
+          // No fallar si las fotos no se suben
+        } finally {
+          if (mounted) {
+            setState(() => _isUploadingFotos = false);
+          }
+        }
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -433,6 +512,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       direccionCompleta = null;
       fechasSeleccionadas.clear();
       sinPrecio = false;
+      _fotosSeleccionadas.clear();
     });
   }
 
@@ -447,10 +527,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Mostrar loading mientras verificamos si es empleador
     if (isCheckingEmpleador) {
       return Scaffold(
-        backgroundColor:  const Color.fromARGB(255, 235, 176, 181),
+        backgroundColor: const Color.fromARGB(255, 235, 176, 181),
         appBar: AppBar(
           backgroundColor: const Color(0xFFC5414B),
           elevation: 0,
@@ -462,7 +541,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       );
     }
 
-    // Si NO es empleador, mostrar pantalla de bloqueo
     if (!esEmpleador) {
       return Scaffold(
         backgroundColor: const Color.fromARGB(255, 235, 176, 181),
@@ -553,7 +631,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       );
     }
 
-    // Si ES empleador, mostrar formulario normal
     if (isLoadingRubros || isLoadingUbicaciones) {
       return Scaffold(
         backgroundColor: const Color.fromARGB(255, 235, 176, 181),
@@ -590,17 +667,150 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               _buildFechasYHorarios(),
               const SizedBox(height: 20),
               _buildDetallesTrabajo(),
+              const SizedBox(height: 20),
+              _buildSeccionFotos(), // ✅ SECCIÓN DE FOTOS
               const SizedBox(height: 32),
               PrimaryButton(
-                  text: 'Publicar Trabajo',
-                  onPressed: _publicarTrabajo,
-                  isLoading: isLoading),
+                  text: _isUploadingFotos ? 'Subiendo fotos...' : 'Publicar Trabajo',
+                  onPressed: (_isUploadingFotos || isLoading) ? () {} : () => _publicarTrabajo(),
+                  isLoading: isLoading || _isUploadingFotos),
               const SizedBox(height: 16),
             ],
           ),
         ),
       ),
     );
+  }
+
+  // ============================================
+  // ✅ WIDGET DE SECCIÓN DE FOTOS
+  // ============================================
+  
+  Widget _buildSeccionFotos() {
+    return _buildCard('📸 Fotos del trabajo (opcional)', Icons.photo_library, [
+      const Text(
+        'Agrega hasta 5 fotos para hacer tu publicación más atractiva. La primera foto será la principal.',
+        style: TextStyle(fontSize: 13, color: Colors.grey),
+      ),
+      const SizedBox(height: 16),
+      
+      // Contador y botón
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Fotos: ${_fotosSeleccionadas.length}/5',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: _fotosSeleccionadas.length < 5 ? _seleccionarFotos : null,
+            icon: const Icon(Icons.add_photo_alternate, size: 18),
+            label: const Text('Agregar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC5414B),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+          ),
+        ],
+      ),
+      
+      const SizedBox(height: 16),
+      
+      // Grid de fotos
+      if (_fotosSeleccionadas.isNotEmpty)
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 1,
+          ),
+          itemCount: _fotosSeleccionadas.length,
+          itemBuilder: (context, index) {
+            final foto = _fotosSeleccionadas[index];
+            return Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: index == 0 
+                          ? const Color(0xFFC5414B) 
+                          : Colors.grey.shade300,
+                      width: index == 0 ? 2 : 1,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: kIsWeb
+                        ? Image.network(
+                            foto.path,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                          )
+                        : Image.file(
+                            File(foto.path),
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                          ),
+                  ),
+                ),
+                
+                // Badge "PRINCIPAL"
+                if (index == 0)
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFC5414B),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'PRINCIPAL',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                
+                // Botón eliminar
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: () => _eliminarFoto(index),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+    ]);
   }
 
   Widget _buildFieldLabel(String label, {bool required = false}) {

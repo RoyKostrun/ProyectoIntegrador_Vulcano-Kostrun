@@ -2,10 +2,10 @@
 // ✅ CON FILTROS + BOTÓN CREAR + FONDO ROSADO
 
 import 'package:flutter/material.dart';
-import '../../models/trabajo_model.dart';
-import '../../services/trabajo_service.dart';
+import '../../models/menu_perfil/trabajo_model.dart';
+import '../../services/menu_perfil/trabajo_service.dart';
 import '../../services/postulacion_service.dart';
-import '../../services/ubicacion_service.dart';
+import '../../services/menu_perfil/ubicacion_service.dart';
 import 'detalle_trabajo_screen.dart';
 import '../../widgets/trabajo_propio_card.dart';
 

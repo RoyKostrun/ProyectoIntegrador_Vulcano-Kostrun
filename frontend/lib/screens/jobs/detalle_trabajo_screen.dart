@@ -2,9 +2,13 @@
 // 🔵 PANTALLA PARA TRABAJOS DE OTROS USUARIOS (AJENOS)
 
 import 'package:flutter/material.dart';
-import '../../models/trabajo_model.dart';
+import '../../models/menu_perfil/trabajo_model.dart';
 import '../../services/postulacion_service.dart';
 import '../../services/user_service.dart';
+import '../../services/chat_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/calificacion_service.dart';
+import '../menu_perfil/calificaciones_pendientes_screen.dart';
 
 class DetalleTrabajoScreen extends StatefulWidget {
   final TrabajoModel trabajo;
@@ -19,11 +23,15 @@ class DetalleTrabajoScreen extends StatefulWidget {
 }
 
 class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
+  final ChatService _chatService = ChatService();
   final UserService _userService = UserService();
+  
+  String? _postulacionId;
   bool _isPostulating = false;
   bool _isAlreadyPostulated = false;
   bool _isEmpleado = false;
   bool _isCheckingEmpleado = true;
+  bool _isSubmitting = false; // ✅ AGREGADA
 
   @override
   void initState() {
@@ -64,49 +72,193 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     }
   }
 
-  Future<void> _postularse({String? mensaje}) async {
-    if (_isAlreadyPostulated) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ya te postulaste a este trabajo'),
-          backgroundColor: Colors.orange,
+  // ✅ MÉTODO CORREGIDO
+  Future<void> _verificarEstadoPostulacion() async {
+    await _verificarPostulacion();
+  }
+
+  // ✅ NUEVO MÉTODO: Abrir chat como empleado
+  Future<void> _abrirChatEmpleado() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFFC5414B),
+          ),
         ),
       );
-      return;
+
+      final userData = await AuthService.getCurrentUserData();
+      if (userData == null) {
+        throw Exception('Usuario no autenticado');
+      }
+
+      // Obtener la postulación del usuario
+      final postulaciones = await PostulacionService.getMisPostulaciones();
+      final miPostulacion = postulaciones.firstWhere(
+        (p) => p.trabajoId == widget.trabajo.id,
+        orElse: () => throw Exception('No se encontró tu postulación'),
+      );
+
+      // Obtener o crear conversación
+      final conversacion =
+          await _chatService.obtenerOCrearConversacion(miPostulacion.id);
+
+      if (mounted) Navigator.pop(context); // Cerrar loading
+
+      if (mounted) {
+        Navigator.pushNamed(
+          context,
+          '/chat',
+          arguments: {
+            'conversacion': conversacion,
+            'usuarioId': userData.idUsuario,
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // Cerrar loading
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al abrir chat: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // ✅ FUNCIÓN _postularse CORREGIDA CON VALIDACIÓN
+  Future<void> _postularse({String? mensaje}) async {
+    // ✅ NUEVA VALIDACIÓN: Verificar calificaciones pendientes
+    final tienePendientes = await CalificacionService.tieneCalificacionesPendientes();
+    
+    if (tienePendientes) {
+      if (mounted) {
+        // Mostrar diálogo bloqueante
+        final irACalificar = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orange,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Calificaciones Pendientes',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                ),
+              ],
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Para postularte a trabajos debes completar las calificaciones de tus trabajos anteriores.',
+                  style: TextStyle(fontSize: 15, height: 1.5),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  '✨ Esto ayuda a mantener la confianza en la comunidad.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context, true),
+                icon: const Icon(Icons.star, size: 18),
+                label: const Text('Ir a Calificar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFC5414B),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (irACalificar == true) {
+          // Navegar a pantalla de calificaciones pendientes
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CalificacionesPendientesScreen(),
+            ),
+          );
+        }
+      }
+      return; // ❌ Bloquear postulación
     }
 
-    setState(() => _isPostulating = true);
+    // ✅ RESTO DEL CÓDIGO ORIGINAL
+    setState(() {
+      _isSubmitting = true;
+    });
 
     try {
       await PostulacionService.postularse(
         trabajoId: widget.trabajo.id,
-        mensaje: mensaje?.isNotEmpty == true ? mensaje : null,
+        mensaje: mensaje?.isEmpty == true ? null : mensaje,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ ¡Te postulaste exitosamente!'),
+            content: Text('✅ Postulación enviada correctamente'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
           ),
         );
 
-        setState(() => _isAlreadyPostulated = true);
+        // Recargar estado
+        await _verificarEstadoPostulacion();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(e.toString()),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
           ),
         );
       }
     } finally {
       if (mounted) {
-        setState(() => _isPostulating = false);
+        setState(() {
+          _isSubmitting = false;
+        });
       }
     }
   }
@@ -231,14 +383,14 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       height: 200,
       decoration: BoxDecoration(
         color: Colors.grey[300],
-        image: widget.trabajo.imagenUrl != null
+        image: widget.trabajo.fotoPrincipalUrl != null
             ? DecorationImage(
-                image: NetworkImage(widget.trabajo.imagenUrl!),
+                image: NetworkImage(widget.trabajo.fotoPrincipalUrl!),
                 fit: BoxFit.cover,
               )
             : null,
       ),
-      child: widget.trabajo.imagenUrl == null
+      child: widget.trabajo.fotoPrincipalUrl == null
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -746,7 +898,105 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       );
     }
 
-    // Si ES empleado, mostrar botones de postulación
+    // Si ES empleado Y ya está postulado, mostrar botón de chat
+    if (_isAlreadyPostulated) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Mensaje de confirmación
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.green.shade50,
+                      Colors.green.shade100,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.check_circle,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '¡Ya te postulaste!',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'El empleador verá tu postulación',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ✅ BOTÓN DE CHAT GRANDE
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _abrirChatEmpleado,
+                  icon: const Icon(Icons.chat_bubble, size: 22),
+                  label: const Text(
+                    'Chatear con el empleador',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFC5414B),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    minimumSize: const Size(double.infinity, 56),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Si ES empleado pero NO está postulado, mostrar botón de postularse
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -760,50 +1010,22 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
         ],
       ),
       child: SafeArea(
-        child: Row(
-          children: [
-            OutlinedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chat próximamente')),
-                );
-              },
-              icon: const Icon(Icons.chat_bubble_outline),
-              label: const Text('Preguntar'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFC5414B),
-                side: const BorderSide(color: Color(0xFFC5414B)),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _isPostulating || _isAlreadyPostulated
-                    ? null
-                    : _mostrarModalPostulacion,
-                icon: Icon(
-                  _isAlreadyPostulated ? Icons.check_circle : Icons.work,
-                ),
-                label: Text(
-                  _isAlreadyPostulated
-                      ? 'Ya postulado'
-                      : _isPostulating
-                          ? 'Postulando...'
-                          : '¡Me apunto!',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isAlreadyPostulated
-                      ? Colors.green
-                      : const Color(0xFFC5414B),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  disabledBackgroundColor: Colors.grey,
-                ),
-              ),
-            ),
-          ],
+        child: ElevatedButton.icon(
+          onPressed: _isPostulating || _isSubmitting ? null : _mostrarModalPostulacion,
+          icon: Icon(
+            _isPostulating || _isSubmitting ? Icons.hourglass_empty : Icons.work,
+          ),
+          label: Text(
+            _isPostulating || _isSubmitting ? 'Postulando...' : '¡Me apunto!',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFC5414B),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            minimumSize: const Size(double.infinity, 56),
+            disabledBackgroundColor: Colors.grey,
+          ),
         ),
       ),
     );

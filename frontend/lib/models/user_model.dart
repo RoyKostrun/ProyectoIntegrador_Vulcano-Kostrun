@@ -69,30 +69,30 @@ class User {
       tipoUsuario: json['tipo_usuario'],
       email: json['email'],
       telefono: json['telefono'],
-      fechaRegistro: json['fecha_registro'] is String 
+      fechaRegistro: json['fecha_registro'] is String
           ? DateTime.parse(json['fecha_registro'])
           : json['fecha_registro'] as DateTime,
       estadoCuenta: json['estado_cuenta'],
       cantidadTrabajosRealizados: json['cantidad_trabajos_realizados'] ?? 0,
       puntosReputacion: json['puntos_reputacion'] ?? 0,
-      bloqueadoHasta: json['bloqueado_hasta'] != null 
-          ? (json['bloqueado_hasta'] is String 
+      bloqueadoHasta: json['bloqueado_hasta'] != null
+          ? (json['bloqueado_hasta'] is String
               ? DateTime.parse(json['bloqueado_hasta'])
               : json['bloqueado_hasta'] as DateTime)
           : null,
-      fechaSuspension: json['fecha_suspension'] != null 
-          ? (json['fecha_suspension'] is String 
+      fechaSuspension: json['fecha_suspension'] != null
+          ? (json['fecha_suspension'] is String
               ? DateTime.parse(json['fecha_suspension'])
               : json['fecha_suspension'] as DateTime)
           : null,
-      createdAt: json['created_at'] is String 
+      createdAt: json['created_at'] is String
           ? DateTime.parse(json['created_at'])
           : json['created_at'] as DateTime,
-      updatedAt: json['updated_at'] is String 
+      updatedAt: json['updated_at'] is String
           ? DateTime.parse(json['updated_at'])
           : json['updated_at'] as DateTime,
-      persona: persona,  // ✅ Usar la variable procesada
-      empresa: empresa,  // ✅ Usar la variable procesada
+      persona: persona, // ✅ Usar la variable procesada
+      empresa: empresa, // ✅ Usar la variable procesada
     );
   }
 
@@ -118,7 +118,7 @@ class User {
   bool get isPersona => tipoUsuario == 'PERSONA';
   bool get isEmpresa => tipoUsuario == 'EMPRESA';
   bool get isActive => estadoCuenta == 'ACTIVO';
-  
+
   String get displayName {
     if (isPersona && persona != null) {
       return '${persona!.nombre} ${persona!.apellido}';
@@ -152,8 +152,8 @@ class UserPersona {
   final String? fotoPerfilUrl;
   final String disponibilidad; // 'ACTIVO' | 'INACTIVO'
   final double puntajePromedio;
-  final bool esEmpleador; // ✅ NUEVO: Reemplaza 'rol'
-  final bool esEmpleado;  // ✅ NUEVO: Reemplaza 'rol'
+  final bool esEmpleador; 
+  final bool esEmpleado; 
   final DateTime fechaRegistro;
   final String? contactoEmergencia;
   final DateTime createdAt;
@@ -173,7 +173,7 @@ class UserPersona {
     required this.disponibilidad,
     required this.puntajePromedio,
     required this.esEmpleador, // ✅ CAMBIADO
-    required this.esEmpleado,  // ✅ CAMBIADO
+    required this.esEmpleado, // ✅ CAMBIADO
     required this.fechaRegistro,
     this.contactoEmergencia,
     required this.createdAt,
@@ -189,8 +189,8 @@ class UserPersona {
       apellido: json['apellido'],
       dni: json['dni'],
       username: json['username'],
-      fechaNacimiento: json['fecha_nacimiento'] != null 
-          ? (json['fecha_nacimiento'] is String 
+      fechaNacimiento: json['fecha_nacimiento'] != null
+          ? (json['fecha_nacimiento'] is String
               ? DateTime.parse(json['fecha_nacimiento'])
               : json['fecha_nacimiento'] as DateTime)
           : null,
@@ -199,15 +199,15 @@ class UserPersona {
       disponibilidad: json['disponibilidad'],
       puntajePromedio: (json['puntaje_promedio'] ?? 0.0).toDouble(),
       esEmpleador: json['es_empleador'] ?? false, // ✅ CAMBIADO
-      esEmpleado: json['es_empleado'] ?? false,   // ✅ CAMBIADO
-      fechaRegistro: json['fecha_registro'] is String 
+      esEmpleado: json['es_empleado'] ?? false, // ✅ CAMBIADO
+      fechaRegistro: json['fecha_registro'] is String
           ? DateTime.parse(json['fecha_registro'])
           : json['fecha_registro'] as DateTime,
       contactoEmergencia: json['contacto_emergencia'],
-      createdAt: json['created_at'] is String 
+      createdAt: json['created_at'] is String
           ? DateTime.parse(json['created_at'])
           : json['created_at'] as DateTime,
-      updatedAt: json['updated_at'] is String 
+      updatedAt: json['updated_at'] is String
           ? DateTime.parse(json['updated_at'])
           : json['updated_at'] as DateTime,
     );
@@ -228,7 +228,7 @@ class UserPersona {
       'disponibilidad': disponibilidad,
       'puntaje_promedio': puntajePromedio,
       'es_empleador': esEmpleador, // ✅ CAMBIADO
-      'es_empleado': esEmpleado,   // ✅ CAMBIADO
+      'es_empleado': esEmpleado, // ✅ CAMBIADO
       'fecha_registro': fechaRegistro.toIso8601String(),
       'contacto_emergencia': contactoEmergencia,
       'created_at': createdAt.toIso8601String(),
@@ -236,13 +236,13 @@ class UserPersona {
     };
   }
 
-  // ✅ NUEVO: Helper para mostrar rol de forma legible
   String get rolDisplay {
     if (esEmpleador && esEmpleado) return 'Empleador y Empleado';
     if (esEmpleador) return 'Empleador';
     if (esEmpleado) return 'Empleado';
     return 'Sin rol asignado';
   }
+
   String? get fotoPerfil => fotoPerfilUrl;
 }
 
@@ -254,6 +254,10 @@ class UserEmpresa {
   final String? razonSocial;
   final String? cuit;
   final String? representanteLegal;
+  final String disponibilidad;
+  final String? logoUrl;
+  final bool esEmpleado; 
+  final bool esEmpleador; 
   final double puntajePromedio;
   final DateTime fechaRegistro;
   final String? direccionFiscal;
@@ -268,6 +272,10 @@ class UserEmpresa {
     this.razonSocial,
     this.cuit,
     this.representanteLegal,
+    required this.disponibilidad,
+    this.logoUrl,
+    required this.esEmpleado, 
+    required this.esEmpleador, 
     required this.puntajePromedio,
     required this.fechaRegistro,
     this.direccionFiscal,
@@ -284,15 +292,20 @@ class UserEmpresa {
       razonSocial: json['razon_social'],
       cuit: json['cuit'],
       representanteLegal: json['representante_legal'],
+      disponibilidad: json['disponibilidad'] ?? 'ACTIVO',
+      logoUrl: json['logo_url'],
+      esEmpleado: json['es_empleado'] ?? false,
+      
+      esEmpleador: json['es_empleador'] ?? false, 
       puntajePromedio: (json['puntaje_promedio'] ?? 0.0).toDouble(),
-      fechaRegistro: json['fecha_registro'] is String 
+      fechaRegistro: json['fecha_registro'] is String
           ? DateTime.parse(json['fecha_registro'])
           : json['fecha_registro'] as DateTime,
       direccionFiscal: json['direccion_fiscal'],
-      createdAt: json['created_at'] is String 
+      createdAt: json['created_at'] is String
           ? DateTime.parse(json['created_at'])
           : json['created_at'] as DateTime,
-      updatedAt: json['updated_at'] is String 
+      updatedAt: json['updated_at'] is String
           ? DateTime.parse(json['updated_at'])
           : json['updated_at'] as DateTime,
     );
@@ -307,11 +320,22 @@ class UserEmpresa {
       'razon_social': razonSocial,
       'cuit': cuit,
       'representante_legal': representanteLegal,
+      'disponibilidad': disponibilidad,
+      'logo_url': logoUrl,
+      'es_empleado': esEmpleado, 
+      'es_empleador': esEmpleador,
       'puntaje_promedio': puntajePromedio,
       'fecha_registro': fechaRegistro.toIso8601String(),
       'direccion_fiscal': direccionFiscal,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
+  }
+
+  String get rolDisplay {
+    if (esEmpleador && esEmpleado) return 'Empleador y Empleado';
+    if (esEmpleador) return 'Empleador';
+    if (esEmpleado) return 'Empleado';
+    return 'Sin rol asignado';
   }
 }

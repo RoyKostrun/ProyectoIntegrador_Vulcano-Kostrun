@@ -1,6 +1,7 @@
 // lib/theme/estado_trabajo_style.dart
+
 import 'package:flutter/material.dart';
-import '../models/trabajo_model.dart';
+import '../models/menu_perfil/trabajo_model.dart';
 
 class EstadoTrabajoStyle {
   final Color color;
@@ -17,44 +18,44 @@ class EstadoTrabajoStyle {
     switch (estado) {
       case EstadoPublicacion.PUBLICADO:
         return EstadoTrabajoStyle(
-          color: Colors.green,
-          icono: Icons.check_circle,
-          texto: 'Publicado',
+          color: const Color(0xFF4CAF50), // ✅ Verde (igual que trabajo_model)
+          icono: Icons.public,              // ✅ Mismo ícono
+          texto: 'PUBLICADO',              // ✅ Mismo texto
         );
 
       case EstadoPublicacion.COMPLETO:
         return EstadoTrabajoStyle(
-          color: Colors.blue,
-          icono: Icons.people_alt_rounded,
-          texto: 'Completo',
+          color: const Color(0xFF2196F3), // ✅ Azul
+          icono: Icons.people,             // ✅ Mismo ícono
+          texto: 'COMPLETO',
         );
 
       case EstadoPublicacion.EN_PROGRESO:
         return EstadoTrabajoStyle(
-          color: Colors.orange,
-          icono: Icons.work_history,
-          texto: 'En progreso',
+          color: const Color(0xFFFF9800), // ✅ Naranja
+          icono: Icons.work,               // ✅ Mismo ícono
+          texto: 'EN PROGRESO',
         );
 
       case EstadoPublicacion.FINALIZADO:
         return EstadoTrabajoStyle(
-          color: Colors.teal,
-          icono: Icons.done_all_rounded,
-          texto: 'Finalizado',
+          color: const Color(0xFF388E3C), // ✅ Verde oscuro/Teal
+          icono: Icons.check_circle,       // ✅ Mismo ícono
+          texto: 'FINALIZADO',
         );
 
       case EstadoPublicacion.VENCIDO:
         return EstadoTrabajoStyle(
-          color: Colors.red,
-          icono: Icons.event_busy,
-          texto: 'Vencido',
+          color: const Color(0xFFF44336), // ✅ Rojo (igual que trabajo_model)
+          icono: Icons.event_busy,         // ✅ Mismo ícono
+          texto: 'VENCIDO',
         );
 
       case EstadoPublicacion.CANCELADO:
         return EstadoTrabajoStyle(
-          color: Colors.grey,
-          icono: Icons.cancel,
-          texto: 'Cancelado',
+          color: const Color(0xFF9E9E9E), // ✅ Gris
+          icono: Icons.cancel,             // ✅ Mismo ícono
+          texto: 'CANCELADO',
         );
     }
   }

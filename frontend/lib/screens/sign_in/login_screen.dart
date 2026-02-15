@@ -5,7 +5,7 @@ import '../../components/app_logo.dart';
 import '../../components/custom_text_field.dart';
 import '../../components/primary_button.dart';
 import '../../services/auth_service.dart';
-import '../../utils/auth_error_handler.dart';
+import '../../utils/calificacion_middleware.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
   // ✅ NUEVO: Validar email mientras escribe
   void _validateEmailOnTyping() {
     final value = _emailOrDniController.text.trim();
-    
+
     // Si está vacío, no mostrar error aún
     if (value.isEmpty) {
       setState(() {
@@ -56,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
       });
       return;
     }
-    
+
     // Si parece ser un DNI (8 dígitos), no validar como email
     if (RegExp(r'^[0-9]{1,8}$').hasMatch(value)) {
       setState(() {
@@ -66,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
       });
       return;
     }
-    
+
     // Validar formato de email
     final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
     if (!emailRegex.hasMatch(value)) {
@@ -120,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _emailErrorMessage = 'Este campo es requerido';
       });
     }
-    
+
     if (_passwordController.text.isEmpty) {
       setState(() {
         _passwordError = true;
@@ -133,11 +133,13 @@ class _LoginScreenState extends State<LoginScreen> {
     // ✅ NUEVO: Verificar si el usuario está bloqueado ANTES de intentar login
     final emailOrDni = _emailOrDniController.text.trim();
     final isBlocked = await AuthService.isUserBlocked(emailOrDni);
-    
+
     if (isBlocked) {
-      final minutosRestantes = await AuthService.getRemainingBlockMinutes(emailOrDni);
+      final minutosRestantes =
+          await AuthService.getRemainingBlockMinutes(emailOrDni);
       setState(() {
-        _generalErrorMessage = 'Cuenta bloqueada temporalmente. Intente nuevamente en $minutosRestantes minutos.';
+        _generalErrorMessage =
+            'Cuenta bloqueada temporalmente. Intente nuevamente en $minutosRestantes minutos.';
       });
       return;
     }
@@ -149,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
         emailOrDni: emailOrDni,
         password: _passwordController.text,
       );
-      
+
       if (response.user != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -158,37 +160,48 @@ class _LoginScreenState extends State<LoginScreen> {
             duration: Duration(seconds: 2),
           ),
         );
-        
+
         // Verificar si completó onboarding
         final hasCompleted = await AuthService.hasCompletedOnboarding();
+
         if (hasCompleted) {
-          Navigator.pushReplacementNamed(context, '/main-nav');
+          // ✅ NUEVO: Verificar calificaciones pendientes ANTES de navegar
+          final bloqueado =
+              await CalificacionMiddleware.verificarYBloquear(context);
+
+          if (!bloqueado && mounted) {
+            // Solo navegar si NO está bloqueado por calificaciones
+            Navigator.pushReplacementNamed(context, '/main-nav');
+          }
+          // Si está bloqueado, el middleware ya mostró el diálogo
+          // y el usuario está en la pantalla de calificaciones
         } else {
+          // Si no completó onboarding, ir a role-selection
           Navigator.pushReplacementNamed(context, '/role-selection');
         }
       }
     } catch (error) {
-  // ✅ Registrar intento fallido en la base de datos
-  await AuthService.registerFailedLoginAttempt(emailOrDni);
-  
-  if (mounted) {
-    // El error ya viene procesado desde AuthService
-    final errorMessage = error.toString();
-    
-    setState(() {
-      _generalErrorMessage = errorMessage;
-    });
-    
-    // También mostrar en SnackBar para mayor visibilidad
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(errorMessage),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 4),
-      ),
-    );
-  }
-} finally {
+      // ✅ Registrar intento fallido en la base de datos
+      await AuthService.registerFailedLoginAttempt(emailOrDni);
+
+      if (mounted) {
+        // El error ya viene procesado desde AuthService
+        final errorMessage = error.toString();
+
+        setState(() {
+          _generalErrorMessage = errorMessage;
+        });
+
+        // También mostrar en SnackBar para mayor visibilidad
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -246,7 +259,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      
+
                       // ✅ NUEVO: Mensaje de error general
                       if (_generalErrorMessage != null)
                         Container(
@@ -259,7 +272,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                              Icon(Icons.error_outline,
+                                  color: Colors.red.shade700, size: 20),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -274,7 +288,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                           ),
                         ),
-                      
+
                       CustomTextField(
                         controller: _emailOrDniController,
                         hintText: 'Email o DNI',
@@ -291,7 +305,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         errorText: _passwordErrorMessage,
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                            _obscurePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
                             color: Colors.grey[600],
                           ),
                           onPressed: _togglePasswordVisibility,
@@ -322,12 +338,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 20),
                       Row(
                         children: [
-                          Expanded(child: Container(height: 1, color: Colors.white.withOpacity(0.4))),
+                          Expanded(
+                              child: Container(
+                                  height: 1,
+                                  color: Colors.white.withOpacity(0.4))),
                           const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Text('O', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
+                            child: Text('O',
+                                style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600)),
                           ),
-                          Expanded(child: Container(height: 1, color: Colors.white.withOpacity(0.4))),
+                          Expanded(
+                              child: Container(
+                                  height: 1,
+                                  color: Colors.white.withOpacity(0.4))),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -335,7 +361,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: RichText(
                           textAlign: TextAlign.center,
                           text: TextSpan(
-                            style: const TextStyle(fontSize: 15, color: Colors.white),
+                            style: const TextStyle(
+                                fontSize: 15, color: Colors.white),
                             children: [
                               const TextSpan(text: '¿No tienes cuenta? '),
                               TextSpan(
@@ -346,7 +373,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   decoration: TextDecoration.underline,
                                   decorationThickness: 2,
                                 ),
-                                recognizer: TapGestureRecognizer()..onTap = _goToCreateAccount,
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = _goToCreateAccount,
                               ),
                             ],
                           ),
@@ -357,7 +385,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Container(
                           width: 50,
                           height: 4,
-                          decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(2)),
+                          decoration: BoxDecoration(
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(2)),
                         ),
                       ),
                       const SizedBox(height: 16),

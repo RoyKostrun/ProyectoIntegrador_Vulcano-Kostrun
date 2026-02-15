@@ -1,0 +1,100 @@
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend>ls
+README.md              android  build           flutter_02.png  inicio  lib    macos         pubspec.yaml  web
+analysis_options.yaml  assets   flutter_01.png  frontend.iml    ios     linux  pubspec.lock  test          windows
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend>cd lib
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib>ls
+components  main.dart  models  screens  services  theme  utils  widgets
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib>cd components
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\components>ls
+account_type_selector.dart  app_theme.dart  custom_text_field.dart  screen_header.dart
+app_logo.dart               componentes     primary_button.dart     section_container.dart
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\components>cd ..
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib>cd models
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\models>ls
+categoria_model.dart     opportunity_model.dart         reseña_model.dart        user_model.dart
+chat                     perfil_compartido_screen.dart  rubro_model.dart         user_rubro_model.dart
+nota_model.dart          perfil_model.dart              trabajo_foto_model.dart
+notificacion_model.dart  postulacion_model.dart         trabajo_model.dart
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\models>cd ..
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib>cd screens
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens>ls
+jobs  main_nav_screen.dart  menu_perfil  sign_in  user
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens>cd jobs
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens\jobs>ls
+create_trabajo_screen.dart          gestionar_fotos_trabajo_screen.dart  postulaciones_trabajo_screen.dart
+detalle_trabajo_propio_screen.dart  mis_postulaciones_screen.dart
+detalle_trabajo_screen.dart         navegador_trabajos_screen.dart
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens\jobs>cd ..
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens>cd menu_perfil
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens\menu_perfil>ls
+agenda      chat           notificaciones              rubros    ubicaciones
+calendario  configuracion  perfil_privado_screen.dart  trabajos  user_menu_screen.dart
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens\menu_perfil>cd ..
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens>cd sign_in
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens\sign_in>ls
+account_type_selection_screen.dart  register_empresarial_screen.dart  rubros_bubbles_screen.dart
+forgot_password_screen.dart         register_personal_screen.dart
+login_screen.dart                   role_selection_screen.dart
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens\sign_in>cd ..
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens>cd user
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens\user>ls
+crear_ubicaciones_screen.dart  perfil_publico_screen.dart  unirse_empleadores_screen.dart  unirse_empleados_screen.dart
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens\user>cd ..
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\screens>cd..
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib>ls
+components  main.dart  models  screens  services  theme  utils  widgets
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib>cd services
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\services>ls
+auth_service.dart  menu_perfil   postulacion_service.dart  user_service.dart
+chat_service.dart  notificacion  supabase_client.dart
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\services>cd ..
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib>cd widgets
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\widgets>ls
+disponibilidad_badge.dart  disponibilidad_switch.dart  estado_trabajo_badge.dart  trabajo_propio_card.dart
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\widgets>cd ..
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib>cd theme
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\theme>ls
+estado_trabajo_style.dart
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\theme>cd ..
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib>cd utils
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\utils>ls
+auth_error_handler.dart  icon_helper.dart  provinces_cities.dart  validators.dart
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib\utils>cd ..
+
+C:\Users\Usuario}\Desktop\CHANGAPP\frontend\lib>

@@ -3,15 +3,16 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../services/trabajo_service.dart';
-import '../../services/rubro_service.dart';
-import '../../services/ubicacion_service.dart';
+import '../../services/menu_perfil/trabajo_service.dart';
+import '../../services/menu_perfil/rubro_service.dart';
+import '../../services/menu_perfil/ubicacion_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
-import '../../services/trabajo_foto_service.dart';
+import '../../services/menu_perfil/trabajo_foto_service.dart';
 import '../../components/primary_button.dart';
+import '../../services/calificacion_service.dart';
+import '../menu_perfil/calificaciones_pendientes_screen.dart';
 
 class CrearTrabajoScreen extends StatefulWidget {
   const CrearTrabajoScreen({Key? key}) : super(key: key);
@@ -47,7 +48,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   List<String> rubros = [];
   List<Map<String, dynamic>> _ubicaciones = [];
   List<DateTime> fechasSeleccionadas = [];
-  
+
   // ✅ NUEVAS VARIABLES PARA FOTOS
   List<XFile> _fotosSeleccionadas = [];
   bool _isUploadingFotos = false;
@@ -137,11 +138,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   // ============================================
   // ✅ MÉTODOS PARA GESTIÓN DE FOTOS
   // ============================================
-  
+
   Future<void> _seleccionarFotos() async {
     try {
       final TrabajoFotoService fotoService = TrabajoFotoService();
-      
+
       if (_fotosSeleccionadas.length >= 5) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -151,11 +152,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         );
         return;
       }
-      
+
       final fotos = await fotoService.seleccionarMultiplesfotos();
-      
+
       if (fotos.isEmpty) return;
-      
+
       final espacioDisponible = 5 - _fotosSeleccionadas.length;
       if (fotos.length > espacioDisponible) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -166,11 +167,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         );
         return;
       }
-      
+
       setState(() {
         _fotosSeleccionadas.addAll(fotos);
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('✅ ${fotos.length} foto(s) seleccionada(s)'),
@@ -350,6 +351,97 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   }
 
   Future<void> _publicarTrabajo() async {
+    // ✅ NUEVA VALIDACIÓN: Verificar calificaciones pendientes ANTES de cualquier otra validación
+    final tienePendientes =
+        await CalificacionService.tieneCalificacionesPendientes();
+
+    if (tienePendientes) {
+      if (mounted) {
+        // Mostrar diálogo bloqueante
+        final irACalificar = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orange,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Calificaciones Pendientes',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                ),
+              ],
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Para publicar trabajos debes completar las calificaciones de tus trabajos anteriores.',
+                  style: TextStyle(fontSize: 15, height: 1.5),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  '✨ Esto ayuda a mantener la confianza en la comunidad.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context, true),
+                icon: const Icon(Icons.star, size: 18),
+                label: const Text('Ir a Calificar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFC5414B),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (irACalificar == true) {
+          // Navegar a pantalla de calificaciones pendientes
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CalificacionesPendientesScreen(),
+            ),
+          );
+        }
+      }
+      return; // ❌ Bloquear creación de trabajo
+    }
+
+    // ✅ RESTO DEL CÓDIGO ORIGINAL (todas las validaciones que ya tienes)
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -447,7 +539,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       // ✅ SUBIR FOTOS SI HAY SELECCIONADAS
       if (_fotosSeleccionadas.isNotEmpty && mounted) {
         setState(() => _isUploadingFotos = true);
-        
+
         try {
           final TrabajoFotoService fotoService = TrabajoFotoService();
           await fotoService.subirFotosMultiples(
@@ -671,8 +763,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               _buildSeccionFotos(), // ✅ SECCIÓN DE FOTOS
               const SizedBox(height: 32),
               PrimaryButton(
-                  text: _isUploadingFotos ? 'Subiendo fotos...' : 'Publicar Trabajo',
-                  onPressed: (_isUploadingFotos || isLoading) ? () {} : () => _publicarTrabajo(),
+                  text: _isUploadingFotos
+                      ? 'Subiendo fotos...'
+                      : 'Publicar Trabajo',
+                  onPressed: (_isUploadingFotos || isLoading)
+                      ? () {}
+                      : () => _publicarTrabajo(),
                   isLoading: isLoading || _isUploadingFotos),
               const SizedBox(height: 16),
             ],
@@ -685,7 +781,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   // ============================================
   // ✅ WIDGET DE SECCIÓN DE FOTOS
   // ============================================
-  
+
   Widget _buildSeccionFotos() {
     return _buildCard('📸 Fotos del trabajo (opcional)', Icons.photo_library, [
       const Text(
@@ -693,7 +789,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         style: TextStyle(fontSize: 13, color: Colors.grey),
       ),
       const SizedBox(height: 16),
-      
+
       // Contador y botón
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -706,7 +802,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             ),
           ),
           ElevatedButton.icon(
-            onPressed: _fotosSeleccionadas.length < 5 ? _seleccionarFotos : null,
+            onPressed:
+                _fotosSeleccionadas.length < 5 ? _seleccionarFotos : null,
             icon: const Icon(Icons.add_photo_alternate, size: 18),
             label: const Text('Agregar'),
             style: ElevatedButton.styleFrom(
@@ -717,9 +814,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           ),
         ],
       ),
-      
+
       const SizedBox(height: 16),
-      
+
       // Grid de fotos
       if (_fotosSeleccionadas.isNotEmpty)
         GridView.builder(
@@ -740,8 +837,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: index == 0 
-                          ? const Color(0xFFC5414B) 
+                      color: index == 0
+                          ? const Color(0xFFC5414B)
                           : Colors.grey.shade300,
                       width: index == 0 ? 2 : 1,
                     ),
@@ -763,14 +860,15 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                           ),
                   ),
                 ),
-                
+
                 // Badge "PRINCIPAL"
                 if (index == 0)
                   Positioned(
                     top: 4,
                     left: 4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: const Color(0xFFC5414B),
                         borderRadius: BorderRadius.circular(4),
@@ -785,7 +883,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                       ),
                     ),
                   ),
-                
+
                 // Botón eliminar
                 Positioned(
                   top: 4,

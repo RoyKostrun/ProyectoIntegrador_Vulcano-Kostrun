@@ -2,11 +2,11 @@
 // 🟢 PANTALLA PARA TUS TRABAJOS PUBLICADOS (PROPIOS)
 
 import 'package:flutter/material.dart';
-import '../../models/trabajo_model.dart';
+import '../../models/menu_perfil/trabajo_model.dart';
 import '../../services/postulacion_service.dart';
 import '../../theme/estado_trabajo_style.dart';
-import '../../services/trabajo_foto_service.dart';
-import '../../models/trabajo_foto_model.dart';
+import '../../services/menu_perfil/trabajo_foto_service.dart';
+import '../../models/menu_perfil/trabajo_foto_model.dart';
 
 class DetalleTrabajoPropio extends StatefulWidget {
   final TrabajoModel trabajo;

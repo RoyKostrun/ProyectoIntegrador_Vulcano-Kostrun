@@ -1,8 +1,8 @@
 //lib/screens/login/rubros_bubbles_screen.dart
 // ✅ ACTUALIZADO: Soporta modo onboarding y modo edición
 import 'package:flutter/material.dart';
-import '../../models/rubro_model.dart';
-import '../../services/rubro_service.dart';
+import '../../models/menu_perfil/rubro_model.dart';
+import '../../services/menu_perfil/rubro_service.dart';
 import '../../services/auth_service.dart';
 import '../../utils/icon_helper.dart';
 

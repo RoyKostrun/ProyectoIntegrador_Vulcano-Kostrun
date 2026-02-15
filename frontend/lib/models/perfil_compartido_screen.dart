@@ -1,9 +1,9 @@
 // lib/screens/profile/perfil_compartido_screen.dart
 
 import 'package:flutter/material.dart';
-import '../../services/perfil_service.dart';
-import '../../models/reseña_model.dart';
-import '../../models/categoria_model.dart';
+import '../services/menu_perfil/perfil_service.dart';
+import 'menu_perfil/reseña_model.dart';
+import 'menu_perfil/categoria_model.dart';
 
 class PerfilCompartidoScreen extends StatefulWidget {
   final int userId;

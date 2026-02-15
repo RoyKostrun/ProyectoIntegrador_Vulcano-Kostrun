@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../components/section_container.dart';
 import '../../components/custom_text_field.dart';
 import '../../components/primary_button.dart';
-import '../../services/ubicacion_service.dart';
+import '../../services/menu_perfil/ubicacion_service.dart';
 import '../../utils/validators.dart';
 import '../../utils/provinces_cities.dart';
 

@@ -1,9 +1,9 @@
 // lib/widgets/trabajo_propio_card.dart
 
 import 'package:flutter/material.dart';
-import '../models/trabajo_model.dart';
+import '../models/menu_perfil/trabajo_model.dart';
 import '../screens/jobs/detalle_trabajo_propio_screen.dart';
-import '../services/trabajo_service.dart';
+import '../services/menu_perfil/trabajo_service.dart';
 
 class TrabajoPropioCard extends StatelessWidget {
   final TrabajoModel trabajo;

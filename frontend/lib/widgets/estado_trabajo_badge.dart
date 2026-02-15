@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/trabajo_model.dart';
+import '../models/menu_perfil/trabajo_model.dart';
 import '../theme/estado_trabajo_style.dart';
 
 class EstadoTrabajoBadge extends StatelessWidget {

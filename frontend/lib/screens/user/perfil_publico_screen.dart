@@ -2,8 +2,8 @@
 // 🌐 PANTALLA DE PERFIL PÚBLICO (compartido)
 
 import 'package:flutter/material.dart';
-import '../../services/perfil_service.dart';
-import '../../models/perfil_model.dart';
+import '../../services/menu_perfil/perfil_service.dart';
+import '../../models/menu_perfil/perfil_model.dart';
 
 class PerfilCompartidoScreen extends StatefulWidget {
   final int userId;

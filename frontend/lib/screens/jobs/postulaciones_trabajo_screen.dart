@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import '../../models/postulacion_model.dart';
 import '../../services/postulacion_service.dart';
+import '../../services/chat_service.dart';
+import '../../services/auth_service.dart';
 
 class PostulacionesTrabajoScreen extends StatefulWidget {
   final int trabajoId;
@@ -21,6 +23,7 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
   List<PostulacionModel> _todasPostulaciones = [];
   bool _isLoading = true;
   String? _errorMessage;
+  final ChatService _chatService = ChatService(); // ✅ NUEVO
 
   @override
   void initState() {
@@ -71,13 +74,59 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
         .length;
   }
 
-  // ✅ NUEVO: Navegar al perfil compartido
   void _verPerfil(int userId) {
     Navigator.pushNamed(
       context,
       '/perfil-compartido',
       arguments: userId,
     );
+  }
+
+  // ✅ NUEVO: Abrir chat con postulante
+  Future<void> _abrirChat(PostulacionModel postulacion) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFFC5414B),
+          ),
+        ),
+      );
+
+      final userData = await AuthService.getCurrentUserData();
+      if (userData == null) {
+        throw Exception('Usuario no autenticado');
+      }
+
+      // Obtener o crear conversación
+      final conversacion = await _chatService.obtenerOCrearConversacion(postulacion.id);
+
+      if (mounted) Navigator.pop(context); // Cerrar loading
+
+      if (mounted) {
+        Navigator.pushNamed(
+          context,
+          '/chat',
+          arguments: {
+            'conversacion': conversacion,
+            'usuarioId': userData.idUsuario,
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // Cerrar loading
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al abrir chat: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _aceptarPostulacion(PostulacionModel postulacion) async {
@@ -110,8 +159,9 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Postulante aceptado'),
+            content: Text('✅ Postulante aceptado. Se ha enviado un mensaje automático.'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
           ),
         );
         
@@ -204,18 +254,10 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           tabs: [
-            Tab(
-              text: 'Todas (${_todasPostulaciones.length})',
-            ),
-            Tab(
-              text: 'Pendientes (${_contarPorEstado('PENDIENTE')})',
-            ),
-            Tab(
-              text: 'Aceptadas (${_contarPorEstado('ACEPTADO')})',
-            ),
-            Tab(
-              text: 'Rechazadas (${_contarPorEstado('RECHAZADO')})',
-            ),
+            Tab(text: 'Todas (${_todasPostulaciones.length})'),
+            Tab(text: 'Pendientes (${_contarPorEstado('PENDIENTE')})'),
+            Tab(text: 'Aceptadas (${_contarPorEstado('ACEPTADO')})'),
+            Tab(text: 'Rechazadas (${_contarPorEstado('RECHAZADO')})'),
           ],
         ),
       ),
@@ -259,10 +301,7 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
             const SizedBox(height: 16),
             Text(
               'No hay postulaciones aún',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -323,7 +362,6 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // ✅ Avatar clickeable
                 GestureDetector(
                   onTap: () => _verPerfil(postulacion.postulanteId),
                   child: CircleAvatar(
@@ -346,12 +384,10 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
                 ),
                 const SizedBox(width: 12),
                 
-                // Info del postulante
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ✅ Nombre clickeable
                       GestureDetector(
                         onTap: () => _verPerfil(postulacion.postulanteId),
                         child: Text(
@@ -370,14 +406,10 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
                             const SizedBox(width: 4),
                             Text(
                               postulante!.puntajePromedio!.toStringAsFixed(1),
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey[600],
-                              ),
+                              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                             ),
                             const SizedBox(width: 12),
                           ],
-                          // ✅ NUEVO: Botón Ver perfil
                           TextButton.icon(
                             onPressed: () => _verPerfil(postulacion.postulanteId),
                             icon: const Icon(Icons.person, size: 14),
@@ -395,7 +427,6 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
                   ),
                 ),
                 
-                // Badge de estado
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -465,10 +496,7 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
                 const SizedBox(width: 4),
                 Text(
                   _formatFecha(postulacion.fechaPostulacion),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -476,7 +504,30 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
           
           const SizedBox(height: 12),
           
-          // Botones de acción
+          // ✅ BOTÓN DE CHAT (BIEN GRANDE)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _abrirChat(postulacion),
+                icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                label: const Text(
+                  'Chatear con postulante',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFC5414B),
+                  side: const BorderSide(color: Color(0xFFC5414B), width: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Botones de acción (Aceptar/Rechazar)
           if (postulacion.estado.toUpperCase() == 'PENDIENTE')
             Padding(
               padding: const EdgeInsets.all(16),

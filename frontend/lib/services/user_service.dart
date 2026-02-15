@@ -76,28 +76,43 @@ class UserService {
     }
   }
 
-  // ==============================================================
-  // 🔹 ACTUALIZAR ES_EMPLEADOR (NUEVO)
-  // ==============================================================
-  /// Actualiza el campo es_empleador del usuario actual
+// ==============================================================
+// 🔹 ACTUALIZAR ES_EMPLEADOR (UNIVERSAL)
+// ==============================================================
+  /// Actualiza el campo es_empleador del usuario actual (PERSONA o EMPRESA)
   Future<void> actualizarEsEmpleador(bool valor) async {
     try {
-      // Obtener el ID del usuario actual
-      final userId = await AuthService.getCurrentUserId();
-      
-      if (userId == null) {
+      final user = await obtenerUsuarioActual();
+
+      if (user == null) {
         throw Exception('Usuario no autenticado');
       }
 
-      // Actualizar el campo es_empleador en la tabla usuario_persona
-      final response = await _supabase
-          .from('usuario_persona')
-          .update({
-            'es_empleador': valor,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id_usuario', userId)
-          .select();
+      dynamic response;
+
+      if (user.isPersona && user.persona != null) {
+        // Actualizar persona
+        response = await _supabase
+            .from('usuario_persona')
+            .update({
+              'es_empleador': valor,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id_persona', user.persona!.idPersona)
+            .select();
+      } else if (user.isEmpresa && user.empresa != null) {
+        // Actualizar empresa
+        response = await _supabase
+            .from('usuario_empresa')
+            .update({
+              'es_empleador': valor,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id_empresa', user.empresa!.idEmpresa)
+            .select();
+      } else {
+        throw Exception('No se encontró información del usuario');
+      }
 
       if (response.isEmpty) {
         throw Exception('No se pudo actualizar el usuario');
@@ -110,78 +125,43 @@ class UserService {
     }
   }
 
-  // ==============================================================
-  // 🔹 VERIFICAR SI ES EMPLEADOR (NUEVO)
-  // ==============================================================
-  /// Verifica si el usuario actual es empleador
-  Future<bool> esEmpleador() async {
-    try {
-      final userId = await AuthService.getCurrentUserId();
-      
-      if (userId == null) {
-        return false;
-      }
-
-      final response = await _supabase
-          .from('usuario_persona')
-          .select('es_empleador')
-          .eq('id_usuario', userId)
-          .single();
-
-      return response['es_empleador'] == true;
-    } catch (e) {
-      print('❌ Error al verificar es_empleador: $e');
-      return false;
-    }
-  }
-
-  // ==============================================================
-  // 🔹 VERIFICAR SI ES EMPLEADO (NUEVO)
-  // ==============================================================
-  /// Verifica si el usuario actual es empleado
-  Future<bool> esEmpleado() async {
-    try {
-      final userId = await AuthService.getCurrentUserId();
-      
-      if (userId == null) {
-        return false;
-      }
-
-      final response = await _supabase
-          .from('usuario_persona')
-          .select('es_empleado')
-          .eq('id_usuario', userId)
-          .single();
-
-      return response['es_empleado'] == true;
-    } catch (e) {
-      print('❌ Error al verificar es_empleado: $e');
-      return false;
-    }
-  }
-
-  // ==============================================================
-  // 🔹 ACTUALIZAR ES_EMPLEADO (NUEVO)
-  // ==============================================================
-  /// Actualiza el campo es_empleado del usuario actual
+// ==============================================================
+// 🔹 ACTUALIZAR ES_EMPLEADO (UNIVERSAL)
+// ==============================================================
+  /// Actualiza el campo es_empleado del usuario actual (PERSONA o EMPRESA)
   Future<void> actualizarEsEmpleado(bool valor) async {
     try {
-      // Obtener el ID del usuario actual
-      final userId = await AuthService.getCurrentUserId();
-      
-      if (userId == null) {
+      final user = await obtenerUsuarioActual();
+
+      if (user == null) {
         throw Exception('Usuario no autenticado');
       }
 
-      // Actualizar el campo es_empleado en la tabla usuario_persona
-      final response = await _supabase
-          .from('usuario_persona')
-          .update({
-            'es_empleado': valor,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id_usuario', userId)
-          .select();
+      dynamic response;
+
+      if (user.isPersona && user.persona != null) {
+        // Actualizar persona
+        response = await _supabase
+            .from('usuario_persona')
+            .update({
+              'es_empleado': valor,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id_persona', user.persona!.idPersona)
+            .select();
+      } else if (user.isEmpresa && user.empresa != null) {
+        // Actualizar empresa
+        response = await _supabase
+            .from('usuario_empresa')
+            .update({
+              'es_empleado': valor,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id_empresa', user.empresa!.idEmpresa)
+            .select();
+      } else {
+        throw Exception('No se encontró información del usuario');
+      }
 
       if (response.isEmpty) {
         throw Exception('No se pudo actualizar el usuario');
@@ -191,6 +171,60 @@ class UserService {
     } catch (e) {
       print('❌ Error al actualizar es_empleado: $e');
       rethrow;
+    }
+  }
+
+// ==============================================================
+// 🔹 VERIFICAR SI ES EMPLEADOR (UNIVERSAL)
+// ==============================================================
+  /// Verifica si el usuario actual es empleador
+  Future<bool> esEmpleador() async {
+    try {
+      final user = await obtenerUsuarioActual();
+
+      if (user == null) {
+        return false;
+      }
+
+      if (user.isPersona && user.persona != null) {
+        return user.persona!.esEmpleador;
+      }
+
+      if (user.isEmpresa && user.empresa != null) {
+        return user.empresa!.esEmpleador;
+      }
+
+      return false;
+    } catch (e) {
+      print('❌ Error al verificar es_empleador: $e');
+      return false;
+    }
+  }
+
+// ==============================================================
+// 🔹 VERIFICAR SI ES EMPLEADO (UNIVERSAL)
+// ==============================================================
+  /// Verifica si el usuario actual es empleado
+  Future<bool> esEmpleado() async {
+    try {
+      final user = await obtenerUsuarioActual();
+
+      if (user == null) {
+        return false;
+      }
+
+      if (user.isPersona && user.persona != null) {
+        return user.persona!.esEmpleado;
+      }
+
+      if (user.isEmpresa && user.empresa != null) {
+        return user.empresa!.esEmpleado;
+      }
+
+      return false;
+    } catch (e) {
+      print('❌ Error al verificar es_empleado: $e');
+      return false;
     }
   }
 
@@ -219,14 +253,11 @@ class UserService {
 
       print('🔍 Buscando usuario con email: $email');
 
-      final response = await _supabase
-          .from('usuario')
-          .select('''
+      final response = await _supabase.from('usuario').select('''
             *,
             usuario_persona (*),
             usuario_empresa (*)
-          ''')
-          .eq('email', email);
+          ''').eq('email', email);
 
       print('📦 Tipo de respuesta: ${response.runtimeType}');
 
@@ -402,13 +433,10 @@ class UserService {
       final userData = await AuthService.getCurrentUserData();
       if (userData == null) throw Exception('Usuario no autenticado');
 
-      await _supabase
-          .from('usuario')
-          .update({
-            'telefono': telefono,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id_usuario', userData.idUsuario);
+      await _supabase.from('usuario').update({
+        'telefono': telefono,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id_usuario', userData.idUsuario);
 
       print('✅ Teléfono actualizado');
     } catch (e) {
@@ -428,19 +456,52 @@ class UserService {
 
       final userData = await AuthService.getCurrentUserData();
       if (userData != null) {
-        await _supabase
-            .from('usuario')
-            .update({
-              'email': nuevoEmail,
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .eq('id_usuario', userData.idUsuario);
+        await _supabase.from('usuario').update({
+          'email': nuevoEmail,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id_usuario', userData.idUsuario);
       }
 
       print('✅ Email actualizado: $nuevoEmail');
     } catch (e) {
       print('❌ Error actualizando email: $e');
       rethrow;
+    }
+  }
+
+  // Agregar estos métodos a lib/services/user_service.dart
+
+// Actualizar disponibilidad de empresa
+  Future<bool> actualizarDisponibilidadEmpresa(
+      int idEmpresa, String disponibilidad) async {
+    try {
+      final response = await _supabase
+          .from('usuario_empresa')
+          .update({'disponibilidad': disponibilidad})
+          .eq('id_empresa', idEmpresa)
+          .select();
+
+      return response != null && response.isNotEmpty;
+    } catch (e) {
+      print('Error al actualizar disponibilidad de empresa: $e');
+      return false;
+    }
+  }
+
+// Actualizar disponibilidad de persona (si no existe)
+  Future<bool> actualizarDisponibilidadPersona(
+      int idPersona, String disponibilidad) async {
+    try {
+      final response = await _supabase
+          .from('persona')
+          .update({'disponibilidad': disponibilidad})
+          .eq('id_persona', idPersona)
+          .select();
+
+      return response != null && response.isNotEmpty;
+    } catch (e) {
+      print('Error al actualizar disponibilidad de persona: $e');
+      return false;
     }
   }
 }

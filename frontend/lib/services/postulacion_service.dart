@@ -2,9 +2,11 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/postulacion_model.dart';
 import 'auth_service.dart';
+import 'chat_service.dart';
 
 class PostulacionService {
   static final _supabase = Supabase.instance.client;
+  static final _chatService = ChatService();
 
   // ========================================
   // 1️⃣ POSTULARSE A UN TRABAJO
@@ -65,12 +67,13 @@ class PostulacionService {
             'fecha_postulacion': DateTime.now().toIso8601String(),
           })
           .select()
-          .maybeSingle();
+          .single(); // ✅ CAMBIO: single() en lugar de maybeSingle()
 
       print('🟢 Resultado insert postulación: $response');
 
       if (response == null) {
-        throw Exception('❌ Error: la postulación no se insertó. Revisa permisos RLS o tipos de datos.');
+        throw Exception(
+            '❌ Error: la postulación no se insertó. Revisa permisos RLS o tipos de datos.');
       }
 
       print('✅ Postulación creada exitosamente en la base de datos.');
@@ -214,25 +217,22 @@ class PostulacionService {
     try {
       final userId = await AuthService.getCurrentUserId();
 
-      var query = _supabase
-          .from('postulacion')
-          .select('''
-            *,
-            trabajo:trabajo_id (
-              id_trabajo,
-              titulo,
-              descripcion,
-              salario,
-              fecha_inicio,
-              fecha_fin,
-              horario_inicio,
-              horario_fin,
-              cantidad_empleados_requeridos,
-              rubro:id_rubro (nombre),
-              ubicacion:id_ubicacion (calle, numero, ciudad)
-            )
-          ''')
-          .eq('postulante_id', userId);
+      var query = _supabase.from('postulacion').select('''
+          *,
+          trabajo:trabajo_id (
+            id_trabajo,
+            titulo,
+            descripcion,
+            salario,
+            fecha_inicio,
+            fecha_fin,
+            horario_inicio,
+            horario_fin,
+            cantidad_empleados_requeridos,
+            empleador_id,
+            rubro:id_rubro (nombre)
+          )
+        ''').eq('postulante_id', userId);
 
       if (estado != null) {
         query = query.eq('estado', estado);
@@ -240,9 +240,7 @@ class PostulacionService {
 
       final result = await query.order('fecha_postulacion', ascending: false);
 
-      return result
-          .map((json) => PostulacionModel.fromJson(json))
-          .toList();
+      return result.map((json) => PostulacionModel.fromJson(json)).toList();
     } catch (e) {
       print('❌ Error obteniendo postulaciones: $e');
       rethrow;
@@ -251,31 +249,57 @@ class PostulacionService {
 
   // ========================================
   // 7️⃣ ACEPTAR POSTULACIÓN (empleador)
+  // ✅ NUEVO: Con creación de chat y mensaje automático
   // ========================================
   static Future<void> aceptarPostulacion(int postulacionId) async {
     try {
-      final postulacion = await _supabase
-          .from('postulacion')
-          .select('trabajo_id')
-          .eq('id_postulacion', postulacionId)
-          .single();
+      // 1. Obtener datos de la postulación
+      final postulacion = await _supabase.from('postulacion').select('''
+            *,
+            trabajo:trabajo_id(titulo, empleador_id)
+          ''').eq('id_postulacion', postulacionId).single();
 
       final trabajoId = postulacion['trabajo_id'];
+      final trabajo = postulacion['trabajo'];
+
+      // 2. Verificar puestos disponibles
       final puestos = await obtenerPuestosDisponibles(trabajoId);
 
       if ((puestos['disponibles'] ?? 0) <= 0) {
         throw Exception('No hay puestos disponibles');
       }
 
-      await _supabase
-          .from('postulacion')
-          .update({
-            'estado': 'ACEPTADO',
-            'fecha_respuesta': DateTime.now().toIso8601String(),
-          })
-          .eq('id_postulacion', postulacionId);
+      // 3. Actualizar estado de la postulación
+      await _supabase.from('postulacion').update({
+        'estado': 'ACEPTADO',
+        'fecha_respuesta': DateTime.now().toIso8601String(),
+      }).eq('id_postulacion', postulacionId);
 
       print('✅ Postulación aceptada.');
+
+      // ✅ 4. CREAR O OBTENER CONVERSACIÓN
+      try {
+        final conversacion =
+            await _chatService.obtenerOCrearConversacion(postulacionId);
+        print('✅ Conversación creada/obtenida: ${conversacion.idConversacion}');
+
+        // ✅ 5. ENVIAR MENSAJE AUTOMÁTICO
+        final tituloTrabajo = trabajo is Map ? trabajo['titulo'] : 'el trabajo';
+        final empleadorId = trabajo is Map ? trabajo['empleador_id'] : null;
+
+        if (empleadorId != null) {
+          await _chatService.enviarMensaje(
+            conversacionId: conversacion.idConversacion,
+            remitenteId: empleadorId,
+            contenido:
+                '¡Felicitaciones! 🎉 Has sido seleccionado para "$tituloTrabajo". Cualquier duda, escríbeme por aquí.',
+          );
+          print('✅ Mensaje automático enviado');
+        }
+      } catch (e) {
+        print('⚠️ Error creando chat/mensaje automático: $e');
+        // No lanzar excepción, la postulación ya fue aceptada
+      }
     } catch (e) {
       print('❌ Error aceptando postulación: $e');
       rethrow;
@@ -287,15 +311,13 @@ class PostulacionService {
   // ========================================
   static Future<void> rechazarPostulacion(int postulacionId) async {
     try {
-      await _supabase
-          .from('postulacion')
-          .update({
-            'estado': 'RECHAZADO',
-            'fecha_respuesta': DateTime.now().toIso8601String(),
-          })
-          .eq('id_postulacion', postulacionId);
+      await _supabase.from('postulacion').update({
+        'estado': 'RECHAZADO',
+        'fecha_respuesta': DateTime.now().toIso8601String(),
+      }).eq('id_postulacion', postulacionId);
 
       print('✅ Postulación rechazada.');
+      // ❌ NO se crea conversación ni se envía mensaje
     } catch (e) {
       print('❌ Error rechazando postulación: $e');
       rethrow;
@@ -311,7 +333,7 @@ class PostulacionService {
   ) async {
     try {
       print('🔍 Obteniendo postulaciones para trabajo: $trabajoId');
-      
+
       // ✅ PASO 1: Obtener postulaciones básicas
       final postulaciones = await _supabase
           .from('postulacion')
@@ -323,16 +345,14 @@ class PostulacionService {
 
       // ✅ PASO 2: Para cada postulación, obtener datos del usuario
       List<PostulacionModel> postulacionesCompletas = [];
-      
+
       for (var postulacionJson in (postulaciones as List)) {
         final postulanteId = postulacionJson['postulante_id'];
         print('   🔍 Buscando datos de usuario $postulanteId...');
-        
+
         try {
           // Obtener datos del usuario
-          final usuario = await _supabase
-              .from('usuario')
-              .select('''
+          final usuario = await _supabase.from('usuario').select('''
                 id_usuario,
                 usuario_persona(
                   nombre,
@@ -343,28 +363,26 @@ class PostulacionService {
                 usuario_empresa(
                   nombre_corporativo
                 )
-              ''')
-              .eq('id_usuario', postulanteId)
-              .single();
-          
+              ''').eq('id_usuario', postulanteId).single();
+
           print('   ✅ Usuario encontrado: $usuario');
-          
+
           // Agregar datos del usuario al JSON de la postulación
           postulacionJson['postulante'] = usuario;
-          
+
           // Crear modelo
-          postulacionesCompletas.add(PostulacionModel.fromJson(postulacionJson));
-          
+          postulacionesCompletas
+              .add(PostulacionModel.fromJson(postulacionJson));
         } catch (e) {
           print('   ⚠️ Error obteniendo usuario $postulanteId: $e');
           // Agregar postulación sin datos de usuario
-          postulacionesCompletas.add(PostulacionModel.fromJson(postulacionJson));
+          postulacionesCompletas
+              .add(PostulacionModel.fromJson(postulacionJson));
         }
       }
 
       print('✅ Total procesadas: ${postulacionesCompletas.length}');
       return postulacionesCompletas;
-      
     } catch (e) {
       print('❌ Error obteniendo postulaciones del trabajo: $e');
       rethrow;

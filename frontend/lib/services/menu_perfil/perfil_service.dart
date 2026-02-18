@@ -124,27 +124,25 @@ class PerfilService {
     }
   }
 
-  // ========================================
-  // 📈 CONTAR TRABAJOS COMPLETADOS
-  // ========================================
-  Future<int> contarTrabajosCompletados(int userId) async {
-    try {
-      print('📊 Contando trabajos completados del usuario ID: $userId');
 
-      // ✅ Buscar por postulante_id y estado COMPLETADO
-      final response = await _supabase
-          .from('postulacion')
-          .select('id_postulacion')
-          .eq('postulante_id', userId)
-          .eq('estado', 'COMPLETADO');
+Future<int> contarTrabajosCompletados(int userId) async {
+  try {
+    print('📊 Contando trabajos completados del usuario ID: $userId');
 
-      print('✅ ${response.length} trabajos completados');
-      return response.length;
-    } catch (e) {
-      print('❌ Error al contar trabajos: $e');
-      return 0;
-    }
+    // ✅ Usar FINALIZADO
+    final response = await _supabase
+        .from('postulacion')
+        .select('id_postulacion')
+        .eq('postulante_id', userId)
+        .eq('estado', 'FINALIZADO');
+
+    print('✅ ${response.length} trabajos completados');
+    return response.length;
+  } catch (e) {
+    print('❌ Error al contar trabajos: $e');
+    return 0;
   }
+}
 
   // ========================================
   // 📍 OBTENER UBICACIÓN DEL USUARIO

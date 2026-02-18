@@ -1,9 +1,9 @@
 // lib/screens/profile/perfil_compartido_screen.dart
+// 🌐 PANTALLA DE PERFIL PÚBLICO (compartido)
 
 import 'package:flutter/material.dart';
-import '../services/menu_perfil/perfil_service.dart';
-import 'menu_perfil/reseña_model.dart';
-import 'menu_perfil/categoria_model.dart';
+import '../../services/menu_perfil/perfil_service.dart';
+import '../../models/menu_perfil/perfil_model.dart';
 
 class PerfilCompartidoScreen extends StatefulWidget {
   final int userId;
@@ -19,57 +19,129 @@ class PerfilCompartidoScreen extends StatefulWidget {
 
 class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
   final PerfilService _perfilService = PerfilService();
-
+  
   bool _isLoading = true;
-  bool _reseniasExpanded = false;
-  bool _categoriasExpanded = false;
-
-  Map<String, dynamic>? _perfilData;
+  String _nombre = '';
+  String? _ubicacion;
+  double _calificacionPromedio = 0.0;
+  int _totalResenias = 0;
+  int _trabajosCompletados = 0;
   List<ReseniaModel> _resenias = [];
   List<CategoriaModel> _categorias = [];
-  Map<String, dynamic> _estadisticas = {};
+  bool _esEmpleado = false;
 
   @override
   void initState() {
     super.initState();
-    _cargarDatos();
+    _cargarDatosPerfil();
   }
 
-  Future<void> _cargarDatos() async {
-    setState(() => _isLoading = true);
+  Future<void> _cargarDatosPerfil() async {
+  setState(() => _isLoading = true);
 
-    try {
-      // Cargar todos los datos en paralelo
-      final results = await Future.wait([
-        _perfilService.obtenerPerfilCompleto(widget.userId),
-        _perfilService.obtenerResenias(widget.userId),
-        _perfilService.obtenerCategorias(widget.userId),
-        _perfilService.obtenerEstadisticas(widget.userId),
-      ]);
-
-      setState(() {
-        _perfilData = results[0] as Map<String, dynamic>;
-        _resenias = (results[1] as List<Map<String, dynamic>>)
-            .map((json) => ReseniaModel.fromJson(json))
-            .toList();
-        _categorias = (results[2] as List<Map<String, dynamic>>)
-            .map((json) => CategoriaModel.fromJson(json))
-            .toList();
-        _estadisticas = results[3] as Map<String, dynamic>;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cargar perfil: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+  try {
+    print('🔍 Cargando perfil del usuario: ${widget.userId}');
+    
+    final datosBasicos = await _perfilService.getDatosBasicosUsuario(widget.userId);
+    print('📊 datosBasicos recibidos: $datosBasicos');
+    
+    String nombreCompleto = '';
+    
+    // ✅ HELPER para verificar si un dato tiene contenido
+    bool tieneContenido(dynamic data) {
+      if (data == null) return false;
+      if (data is List) return data.isNotEmpty;
+      if (data is Map) return data.isNotEmpty;
+      return true;
+    }
+    
+    // ✅ PRIMERO verificar usuario_empresa Y que tenga contenido
+    if (tieneContenido(datosBasicos['usuario_empresa'])) {
+      final empresaData = datosBasicos['usuario_empresa'];
+      print('   🏢 Tiene usuario_empresa');
+      print('      Tipo: ${empresaData.runtimeType}');
+      print('      Valor: $empresaData');
+      
+      final empresa = empresaData is List && empresaData.isNotEmpty
+          ? empresaData[0]
+          : empresaData;
+          
+      if (empresa != null && empresa is Map<String, dynamic>) {
+        nombreCompleto = empresa['nombre_corporativo']?.toString() ?? '';
+        print('      ✅ Nombre empresa: "$nombreCompleto"');
       }
     }
+    // ✅ SI NO ES EMPRESA, verificar usuario_persona Y que tenga contenido
+    else if (tieneContenido(datosBasicos['usuario_persona'])) {
+      final personaData = datosBasicos['usuario_persona'];
+      print('   👤 Tiene usuario_persona');
+      print('      Tipo: ${personaData.runtimeType}');
+      print('      Valor: $personaData');
+      
+      final persona = personaData is List && personaData.isNotEmpty
+          ? personaData[0]
+          : personaData;
+          
+      if (persona != null && persona is Map<String, dynamic>) {
+        final nombre = persona['nombre']?.toString() ?? '';
+        final apellido = persona['apellido']?.toString() ?? '';
+        nombreCompleto = '$nombre $apellido'.trim();
+        print('      ✅ Nombre construido: "$nombreCompleto"');
+      }
+    }
+    
+    if (nombreCompleto.isEmpty) {
+      nombreCompleto = 'Usuario';
+      print('   ⚠️ No se encontró nombre, usando fallback: "$nombreCompleto"');
+    }
+    
+    _nombre = nombreCompleto;
+    print('🎯 Nombre final asignado: "$_nombre"');
+
+    // ✅ Cargar reseñas con try-catch
+    try {
+      _resenias = await _perfilService.getReseniasUsuario(widget.userId);
+      _totalResenias = _resenias.length;
+      _calificacionPromedio = await _perfilService.getPromedioCalificacion(widget.userId);
+    } catch (e) {
+      print('⚠️ No se pudieron cargar reseñas: $e');
+      _resenias = [];
+      _totalResenias = 0;
+      _calificacionPromedio = 0.0;
+    }
+
+    _ubicacion = await _perfilService.getUbicacionUsuario(widget.userId);
+
+    try {
+      _esEmpleado = await _perfilService.esEmpleado(widget.userId);
+    } catch (e) {
+      print('⚠️ Error verificando empleado: $e');
+      _esEmpleado = false;
+    }
+
+    if (_esEmpleado) {
+      try {
+        _categorias = await _perfilService.getCategoriasEmpleado(widget.userId);
+        _trabajosCompletados = await _perfilService.contarTrabajosCompletados(widget.userId);
+      } catch (e) {
+        print('⚠️ Error cargando datos de empleado: $e');
+        _categorias = [];
+        _trabajosCompletados = 0;
+      }
+    }
+
+    print('✅ Perfil cargado completamente');
+    setState(() => _isLoading = false);
+    
+  } catch (e, stackTrace) {
+    print('❌ ERROR cargando perfil: $e');
+    print('   Stack trace: $stackTrace');
+    setState(() {
+      _isLoading = false;
+      _nombre = 'Error al cargar';
+    });
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +158,16 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
           'Perfil',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Compartir próximamente')),
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(
@@ -94,208 +176,158 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
               ),
             )
           : RefreshIndicator(
-              onRefresh: _cargarDatos,
+              onRefresh: _cargarDatosPerfil,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
                   children: [
                     _buildHeader(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     _buildEstadisticas(),
-                    const SizedBox(height: 16),
-                    _buildReseniasSection(),
-                    const SizedBox(height: 16),
-                    _buildCategoriasSection(),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 20),
+                    if (_categorias.isNotEmpty) _buildCategorias(),
+                    if (_categorias.isNotEmpty) const SizedBox(height: 20),
+                    _buildResenias(),
+                    const SizedBox(height: 80),
                   ],
                 ),
               ),
             ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Chat próximamente')),
+          );
+        },
+        backgroundColor: const Color(0xFFC5414B),
+        icon: const Icon(Icons.chat_bubble_outline),
+        label: const Text('Contactar'),
+      ),
     );
   }
+
   Widget _buildHeader() {
-      if (_perfilData == null) return const SizedBox();
-
-      final nombre = (_perfilData!['nombre'] ?? '').toString().trim();
-      final apellido = (_perfilData!['apellido'] ?? '').toString().trim();
-      final username = (_perfilData!['username'] ?? '').toString();
-      final fotoPerfil = _perfilData!['foto_perfil_url'];
-      final rating = (_perfilData!['puntaje_promedio'] ?? 0.0).toDouble();
-      final trabajosRealizados = _perfilData!['cantidad_trabajos_realizados'] ?? 0;
-
-      // ✅ Helper para obtener iniciales de forma segura
-      String getIniciales() {
-        if (nombre.isEmpty && apellido.isEmpty) return '?';
-        if (nombre.isEmpty) return apellido.isNotEmpty ? apellido[0].toUpperCase() : '?';
-        if (apellido.isEmpty) return nombre.isNotEmpty ? nombre[0].toUpperCase() : '?';
-        return '${nombre[0]}${apellido[0]}'.toUpperCase();
+    String getIniciales() {
+      if (_nombre.isEmpty || _nombre == 'Usuario' || _nombre == 'Error al cargar') {
+        return '?';
       }
-
-      // ✅ Helper para obtener nombre completo
-      String getNombreCompleto() {
-        if (nombre.isEmpty && apellido.isEmpty) return 'Usuario';
-        return '$nombre $apellido'.trim();
+      
+      final palabras = _nombre.split(' ');
+      if (palabras.length >= 2 && palabras[0].isNotEmpty && palabras[1].isNotEmpty) {
+        return '${palabras[0][0]}${palabras[1][0]}'.toUpperCase();
       }
-
-      return Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFC5414B), Color(0xFFE85A4F)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 32),
-            
-            // Foto de perfil
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 4),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: CircleAvatar(
-                radius: 60,
-                backgroundColor: Colors.white,
-                backgroundImage: fotoPerfil != null
-                    ? NetworkImage(fotoPerfil)
-                    : null,
-                child: fotoPerfil == null
-                    ? Text(
-                        getIniciales(),  // ✅ Usa el helper seguro
-                        style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFC5414B),
-                        ),
-                      )
-                    : null,
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Nombre completo
-            Text(
-              getNombreCompleto(),  // ✅ Usa el helper seguro
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-
-            const SizedBox(height: 4),
-
-            // Username (solo mostrar si existe)
-            if (username.isNotEmpty)
-              Text(
-                '@$username',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white.withOpacity(0.9),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-
-            const SizedBox(height: 16),
-
-            // Rating y trabajos
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.star, color: Colors.amber, size: 20),
-                  const SizedBox(width: 6),
-                  Text(
-                    rating.toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
-                    ' (${_resenias.length} reseñas)',  // ✅ Muestra cantidad de reseñas
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Container(
-                    width: 1,
-                    height: 20,
-                    color: Colors.white.withOpacity(0.5),
-                  ),
-                  const SizedBox(width: 16),
-                  const Icon(Icons.work_outline, color: Colors.white, size: 20),
-                  const SizedBox(width: 6),
-                  Text(
-                    '$trabajosRealizados trabajos',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-          ],
-        ),
-      );
+      return _nombre[0].toUpperCase();
     }
 
-  Widget _buildEstadisticas() {
-    final trabajosCompletados = _estadisticas['trabajos_completados'] ?? 0;
-    final totalPostulaciones = _estadisticas['total_postulaciones'] ?? 0;
-    final totalResenias = _estadisticas['total_reseñas'] ?? 0;
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Color(0xFFC5414B),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
+      ),
+      padding: const EdgeInsets.all(30),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 60,
+            backgroundColor: Colors.white,
+            child: Text(
+              getIniciales(),
+              style: const TextStyle(
+                fontSize: 48,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFC5414B),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _nombre,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          if (_ubicacion != null && _ubicacion!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.location_on, color: Colors.white70, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  _ubicacion!,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.star, color: Colors.amber, size: 28),
+              const SizedBox(width: 8),
+              Text(
+                _calificacionPromedio.toStringAsFixed(1),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '($_totalResenias ${_totalResenias == 1 ? 'reseña' : 'reseñas'})',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.white70,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildEstadisticas() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
+          if (_esEmpleado)
+            Expanded(
+              child: _buildStatCard(
+                icon: Icons.work,
+                label: 'Trabajos\nCompletados',
+                value: '$_trabajosCompletados',
+                color: Colors.green,
+              ),
+            ),
+          if (_esEmpleado) const SizedBox(width: 12),
           Expanded(
-            child: _buildEstadisticaCard(
-              icon: Icons.check_circle_outline,
-              value: '$trabajosCompletados',
-              label: 'Completados',
-              color: Colors.green,
+            child: _buildStatCard(
+              icon: Icons.star,
+              label: 'Calificación\nPromedio',
+              value: _calificacionPromedio.toStringAsFixed(1),
+              color: Colors.amber,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: _buildEstadisticaCard(
-              icon: Icons.send_outlined,
-              value: '$totalPostulaciones',
-              label: 'Postulaciones',
+            child: _buildStatCard(
+              icon: Icons.chat_bubble,
+              label: 'Reseñas\nRecibidas',
+              value: '$_totalResenias',
               color: Colors.blue,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildEstadisticaCard(
-              icon: Icons.rate_review_outlined,
-              value: '$totalResenias',
-              label: 'Resenias',
-              color: Colors.orange,
             ),
           ),
         ],
@@ -303,33 +335,33 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
     );
   }
 
-  Widget _buildEstadisticaCard({
+  Widget _buildStatCard({
     required IconData icon,
-    required String value,
     required String label,
+    required String value,
     required Color color,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 28),
+          Icon(icon, color: color, size: 32),
           const SizedBox(height: 8),
           Text(
             value,
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -337,438 +369,230 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
           const SizedBox(height: 4),
           Text(
             label,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey[600],
+              height: 1.2,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildReseniasSection() {
+  Widget _buildCategorias() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '🏷️ Especialidades',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            // Header del botón
-            InkWell(
-              onTap: () {
-                setState(() => _reseniasExpanded = !_reseniasExpanded);
-              },
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _categorias.map((categoria) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC5414B).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFFC5414B).withOpacity(0.3),
+                  ),
+                ),
+                child: Text(
+                  categoria.nombre,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFC5414B),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResenias() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '⭐ Reseñas',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+              Text(
+                '$_totalResenias ${_totalResenias == 1 ? 'reseña' : 'reseñas'}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_resenias.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: Column(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(10),
+                    Icon(Icons.star_border, size: 64, color: Colors.grey[300]),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Aún no hay reseñas',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[600],
                       ),
-                      child: Icon(
-                        Icons.rate_review,
-                        color: Colors.orange.shade700,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Reseñas',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          Text(
-                            '${_resenias.length} reseñas disponibles',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      _reseniasExpanded
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      color: Colors.grey[600],
-                      size: 28,
                     ),
                   ],
                 ),
               ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _resenias.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final resenia = _resenias[index];
+                return _buildReseniaCard(resenia);
+              },
             ),
-
-            // Contenido expandible
-            if (_reseniasExpanded) ...[
-              const Divider(height: 1),
-              if (_resenias.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    children: [
-                      Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Aún no hay reseñas',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _resenias.length,
-                  separatorBuilder: (context, index) => const Divider(height: 24),
-                  itemBuilder: (context, index) {
-                    return _buildReseniaCard(_resenias[index]);
-                  },
-                ),
-            ],
-          ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildReseniaCard(ReseniaModel resenia) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header de la reseña
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: const Color(0xFFC5414B),
-              backgroundImage: resenia.fotoPerfilEmisor != null
-                  ? NetworkImage(resenia.fotoPerfilEmisor!)
-                  : null,
-              child: resenia.fotoPerfilEmisor == null
-                  ? Text(
-                      resenia.getIniciales(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    resenia.nombreEmisor,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  Text(
-                    _formatFecha(resenia.fecha),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Estrellas
-            Row(
-              children: List.generate(
-                5,
-                (index) => Icon(
-                  index < resenia.puntuacion ? Icons.star : Icons.star_border,
-                  color: Colors.amber,
-                  size: 18,
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 12),
-
-        // Trabajo relacionado
-        if (resenia.tituloTrabajo != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.work, size: 14, color: Colors.blue.shade700),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    resenia.tituloTrabajo!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue.shade900,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-        if (resenia.tituloTrabajo != null) const SizedBox(height: 12),
-
-        // Comentario
-        if (resenia.comentario != null && resenia.comentario!.isNotEmpty)
-          Text(
-            resenia.comentario!,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[800],
-              height: 1.4,
-            ),
-          ),
-
-        // Badge de recomendación
-        if (resenia.recomendacion == true) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.green.shade200),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.thumb_up, size: 14, color: Colors.green.shade700),
-                const SizedBox(width: 6),
-                Text(
-                  'Recomendado',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade700,
-                  ),
-                ),
-              ],
-            ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
-      ],
-    );
-  }
-
-  Widget _buildCategoriasSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            // Header del botón
-            InkWell(
-              onTap: () {
-                setState(() => _categoriasExpanded = !_categoriasExpanded);
-              },
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: const Color(0xFFC5414B).withOpacity(0.2),
+                child: Text(
+                  resenia.getIniciales(),
+                  style: const TextStyle(
+                    color: Color(0xFFC5414B),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.category,
-                        color: Colors.blue.shade700,
-                        size: 24,
+                    Text(
+                      resenia.nombreEmisor,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Categorías',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          Text(
-                            '${_categorias.length} categorías disponibles',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
+                    Text(
+                      _formatearFecha(resenia.fecha),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
                       ),
-                    ),
-                    Icon(
-                      _categoriasExpanded
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      color: Colors.grey[600],
-                      size: 28,
                     ),
                   ],
                 ),
               ),
-            ),
-
-            // Contenido expandible
-            if (_categoriasExpanded) ...[
-              const Divider(height: 1),
-              if (_categorias.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    children: [
-                      Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Aún no hay categorías',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _categorias.map((categoria) {
-                      return _buildCategoriaChip(categoria);
-                    }).toList(),
-                  ),
-                ),
+              Row(
+                children: List.generate(5, (index) {
+                  return Icon(
+                    index < resenia.puntuacion
+                        ? Icons.star
+                        : Icons.star_border,
+                    color: Colors.amber,
+                    size: 20,
+                  );
+                }),
+              ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoriaChip(CategoriaModel categoria) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFC5414B).withOpacity(0.1),
-            const Color(0xFFE85A4F).withOpacity(0.1),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFC5414B).withOpacity(0.3),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.work_outline,
-            size: 16,
-            color: const Color(0xFFC5414B),
           ),
-          const SizedBox(width: 6),
-          Text(
-            categoria.nombre,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFFC5414B),
+          if (resenia.comentario != null && resenia.comentario!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              resenia.comentario!,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+                height: 1.5,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  String _formatFecha(DateTime fecha) {
-    final now = DateTime.now();
-    final diferencia = now.difference(fecha);
+  String _formatearFecha(DateTime fecha) {
+    try {
+      final ahora = DateTime.now();
+      final diferencia = ahora.difference(fecha);
 
-    if (diferencia.inMinutes < 60) {
-      return 'Hace ${diferencia.inMinutes}m';
-    } else if (diferencia.inHours < 24) {
-      return 'Hace ${diferencia.inHours}h';
-    } else if (diferencia.inDays < 7) {
-      return 'Hace ${diferencia.inDays}d';
-    } else if (diferencia.inDays < 30) {
-      final semanas = (diferencia.inDays / 7).floor();
-      return 'Hace ${semanas}sem';
-    } else if (diferencia.inDays < 365) {
-      final meses = (diferencia.inDays / 30).floor();
-      return 'Hace ${meses}m';
-    } else {
-      return '${fecha.day}/${fecha.month}/${fecha.year}';
+      if (diferencia.inDays == 0) {
+        return 'Hoy';
+      } else if (diferencia.inDays == 1) {
+        return 'Ayer';
+      } else if (diferencia.inDays < 7) {
+        return 'Hace ${diferencia.inDays} días';
+      } else if (diferencia.inDays < 30) {
+        return 'Hace ${(diferencia.inDays / 7).floor()} semanas';
+      } else if (diferencia.inDays < 365) {
+        return 'Hace ${(diferencia.inDays / 30).floor()} meses';
+      } else {
+        return 'Hace ${(diferencia.inDays / 365).floor()} años';
+      }
+    } catch (e) {
+      return 'Fecha desconocida';
     }
   }
 }

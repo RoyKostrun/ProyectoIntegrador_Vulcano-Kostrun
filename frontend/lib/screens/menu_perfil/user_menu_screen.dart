@@ -62,17 +62,28 @@ class _UserMenuScreenState extends State<UserMenuScreen> {
       case 'Mi Perfil':
         Navigator.pushNamed(context, '/perfil');
         break;
+      case 'Mis Empleados':
+        Navigator.pushNamed(context, '/mis-empleados');
+        break;
+      case 'Mis Trabajos':
+        Navigator.pushNamed(context, '/trabajos');
+        break;
+      case 'Calificar':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const CalificacionesPendientesScreen(),
+          ),
+        );
+        break;
+      case 'Mis Postulaciones':
+        Navigator.pushNamed(context, '/mis-postulaciones');
+        break;
       case 'Mis Rubros':
         Navigator.pushNamed(context, '/mis-rubros');
         break;
       case 'Mis Ubicaciones':
         Navigator.pushNamed(context, '/ubicaciones');
-        break;
-      case 'Mis Trabajos':
-        Navigator.pushNamed(context, '/trabajos');
-        break;
-      case 'Mis Postulaciones':
-        Navigator.pushNamed(context, '/mis-postulaciones');
         break;
       case 'Agenda':
         Navigator.pushNamed(context, '/agenda');
@@ -83,14 +94,7 @@ class _UserMenuScreenState extends State<UserMenuScreen> {
       case 'Configuración':
         Navigator.pushNamed(context, '/configuracion');
         break;
-      case 'Calificar':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const CalificacionesPendientesScreen(),
-          ),
-        );
-        break;
+
       default:
         _showComingSoon(screenName);
     }
@@ -445,8 +449,15 @@ class _UserMenuScreenState extends State<UserMenuScreen> {
   }
 
   Widget _buildExpandedMenu() {
+    final esEmpresa = currentUser?.isEmpresa ?? false;
+
     final menuItems = [
       {'title': 'Mi Perfil', 'icon': Icons.person, 'color': Colors.blue},
+
+      // ✅ NUEVO: Solo mostrar para empresas
+      if (esEmpresa)
+        {'title': 'Mis Empleados', 'icon': Icons.people, 'color': Colors.teal},
+
       {'title': 'Mis Rubros', 'icon': Icons.category, 'color': Colors.purple},
       {
         'title': 'Mis Ubicaciones',
@@ -459,11 +470,7 @@ class _UserMenuScreenState extends State<UserMenuScreen> {
         'icon': Icons.assignment,
         'color': Colors.pink
       },
-      {
-        'title': 'Calificar',
-        'icon': Icons.star_rate,
-        'color': Colors.amber
-      }, // ✅ SIN showBadge
+      {'title': 'Calificar', 'icon': Icons.star_rate, 'color': Colors.amber},
       {'title': 'Agenda', 'icon': Icons.event_note, 'color': Colors.indigo},
       {
         'title': 'Calendario',
@@ -498,7 +505,6 @@ class _UserMenuScreenState extends State<UserMenuScreen> {
           itemBuilder: (context, index) {
             final item = menuItems[index];
 
-            // ✅ TODOS USAN EL MISMO CARD (sin badge)
             return _buildMenuCard(
               item['title'] as String,
               item['icon'] as IconData,

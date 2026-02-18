@@ -157,4 +157,32 @@ class NotificacionService {
       return false;
     }
   }
+
+  // ========== CREAR NOTIFICACIÓN (MÉTODO ESTÁTICO) ==========
+  static Future<void> crearNotificacion({
+    required int usuarioId,
+    required String tipo,
+    required String mensaje,
+    int? trabajoId,
+    int? postulacionId,
+  }) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      await supabase.from('notificacion').insert({
+        'id_usuario': usuarioId,
+        'tipo': tipo,
+        'mensaje': mensaje,
+        'trabajo_id': trabajoId,
+        'postulacion_id': postulacionId,
+        'estado': 'NO_LEIDA',
+        'fecha': DateTime.now().toIso8601String(),
+      });
+
+      print('✅ Notificación creada para usuario $usuarioId');
+    } catch (e) {
+      print('❌ Error creando notificación: $e');
+      rethrow;
+    }
+  }
 }

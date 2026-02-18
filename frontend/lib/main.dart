@@ -29,6 +29,11 @@ import 'screens/menu_perfil/configuracion/editar_email_screen.dart';
 import 'screens/menu_perfil/configuracion/editar_telefono_screen.dart';
 import 'screens/menu_perfil/configuracion/editar_foto_screen.dart';
 import 'screens/main_nav_screen.dart';
+import 'screens/jobs/editar_trabajo_screen.dart';
+import 'screens/empresa/editar_empleado_screen.dart';
+import 'screens/empresa/mis_empleados_screen.dart';
+import 'screens/empresa/agregar_empleado_screen.dart';
+import 'models/empleado_empresa_model.dart';
 
 import 'screens/jobs/postulaciones_trabajo_screen.dart';
 import 'screens/jobs/mis_postulaciones_screen.dart';
@@ -169,7 +174,11 @@ class MyApp extends StatelessWidget {
                 },
               ),
             );
-
+          case '/editar-trabajo':
+            final trabajo = settings.arguments as TrabajoModel;
+            return MaterialPageRoute(
+              builder: (context) => EditarTrabajoScreen(trabajo: trabajo),
+            );
           case '/detalle-trabajo-propio':
             final trabajoId = settings.arguments as int;
             return MaterialPageRoute(
@@ -259,6 +268,15 @@ class MyApp extends StatelessWidget {
         '/reputacion-detalle': (context) {
           final rol = ModalRoute.of(context)!.settings.arguments as String;
           return ReputacionDetalleScreen(rol: rol);
+        },
+        // En la sección de rutas de main.dart, agrega:
+
+        '/mis-empleados': (context) => const MisEmpleadosScreen(),
+        '/agregar-empleado': (context) => const AgregarEmpleadoScreen(),
+        '/editar-empleado': (context) {
+          final empleado = ModalRoute.of(context)!.settings.arguments
+              as EmpleadoEmpresaModel;
+          return EditarEmpleadoScreen(empleado: empleado);
         },
       },
     );

@@ -12,7 +12,7 @@ import '../../services/user_service.dart';
 import '../../services/menu_perfil/trabajo_foto_service.dart';
 import '../../components/primary_button.dart';
 import '../../services/calificacion_service.dart';
-import '../menu_perfil/calificaciones_pendientes_screen.dart';
+import '../../widgets/ios_time_picker.dart';
 
 class CrearTrabajoScreen extends StatefulWidget {
   const CrearTrabajoScreen({Key? key}) : super(key: key);
@@ -39,6 +39,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   bool isCheckingEmpleador = true;
   bool esEmpleador = false;
   bool sinPrecio = false;
+  bool permiteInicioIncompleto = false;
   String? selectedRubro;
   String? selectedMetodoPago;
   String? periodoPagoSeleccionado;
@@ -220,33 +221,27 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     return null;
   }
 
-  Future<void> _seleccionarHora(TextEditingController controller,
-      {bool abrirSiguiente = false}) async {
-    final TimeOfDay? picked = await showTimePicker(
+  Future<void> _seleccionarHora(
+    TextEditingController controller, {
+    bool abrirSiguiente = false,
+    bool esHoraInicio = true,
+  }) async {
+    final TimeOfDay? picked = await showIOSTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFFC5414B),
-              onPrimary: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      title: esHoraInicio ? 'Hora de Inicio' : 'Hora de Fin',
     );
 
     if (picked != null) {
       setState(() {
+        // ✅ FORMATO CORREGIDO: siempre 2 dígitos con padLeft
         controller.text =
             '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
       });
 
       if (abrirSiguiente) {
         Future.delayed(const Duration(milliseconds: 300), () {
-          _seleccionarHora(horarioFinController);
+          _seleccionarHora(horarioFinController, esHoraInicio: false);
         });
       }
     }
@@ -351,95 +346,123 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   }
 
   Future<void> _publicarTrabajo() async {
-    // ✅ NUEVA VALIDACIÓN: Verificar calificaciones pendientes ANTES de cualquier otra validación
-    final tienePendientes =
-        await CalificacionService.tieneCalificacionesPendientes();
+    // ✅ NUEVA VALIDACIÓN: Verificar horarios si el trabajo es HOY
+    if (fechasSeleccionadas.isNotEmpty) {
+      final primerDia = fechasSeleccionadas.first;
+      final hoy = DateTime.now();
 
-    if (tienePendientes) {
-      if (mounted) {
-        // Mostrar diálogo bloqueante
-        final irACalificar = await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.warning_amber_rounded,
-                    color: Colors.orange,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Calificaciones Pendientes',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                ),
-              ],
-            ),
-            content: const Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Para publicar trabajos debes completar las calificaciones de tus trabajos anteriores.',
-                  style: TextStyle(fontSize: 15, height: 1.5),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  '✨ Esto ayuda a mantener la confianza en la comunidad.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => Navigator.pop(context, true),
-                icon: const Icon(Icons.star, size: 18),
-                label: const Text('Ir a Calificar'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFC5414B),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+      // Si el trabajo es HOY, validar que los horarios no sean pasados
+      if (primerDia.year == hoy.year &&
+          primerDia.month == hoy.month &&
+          primerDia.day == hoy.day) {
+        // Validar hora de inicio
+        if (horarioInicioController.text.isNotEmpty) {
+          final partesInicio = horarioInicioController.text.split(':');
+          final horaInicio = int.parse(partesInicio[0]);
+          final minutoInicio = int.parse(partesInicio[1]);
 
-        if (irACalificar == true) {
-          // Navegar a pantalla de calificaciones pendientes
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CalificacionesPendientesScreen(),
-            ),
+          final horarioInicio = DateTime(
+            hoy.year,
+            hoy.month,
+            hoy.day,
+            horaInicio,
+            minutoInicio,
           );
+
+          // Si la hora de inicio ya pasó, mostrar error
+          if (horarioInicio.isBefore(hoy)) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Horario Inválido',
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    ),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'El horario de inicio que seleccionaste ya pasó.',
+                      style: TextStyle(fontSize: 15, height: 1.5),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.access_time, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Hora actual: ${hoy.hour.toString().padLeft(2, '0')}:${hoy.minute.toString().padLeft(2, '0')}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Por favor, selecciona un horario futuro.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFC5414B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('Entendido'),
+                  ),
+                ],
+              ),
+            );
+            return; // ❌ Bloquear creación
+          }
         }
       }
-      return; // ❌ Bloquear creación de trabajo
     }
+
+    // ✅ VALIDACIÓN DE CALIFICACIONES PENDIENTES (tu código existente)
+    final tienePendientes =
+        await CalificacionService.tieneCalificacionesPendientes();
 
     // ✅ RESTO DEL CÓDIGO ORIGINAL (todas las validaciones que ya tienes)
     if (!_formKey.currentState!.validate()) {
@@ -516,6 +539,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             ? 0.0
             : double.parse(salarioController.text),
         'cantidad_empleados_requeridos': cantidadSeleccionada,
+        'permite_inicio_incompleto': permiteInicioIncompleto,
         'id_rubro': idRubro,
         'ubicacion_id': int.parse(ubicacionSeleccionada!),
         'metodo_pago': selectedMetodoPago!,
@@ -530,6 +554,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         'empleador_id': idUsuario,
       };
 
+      print('🕐 DATOS ENVIADOS:');
+      print('   Horario inicio controller: ${horarioInicioController.text}');
+      print('   Horario fin controller: ${horarioFinController.text}');
+      print(
+          '   Datos enviados: ${datosEnvio['horario_inicio']} - ${datosEnvio['horario_fin']}');
       // ✅ CREAR TRABAJO
       final trabajoCreado = await trabajoService.createTrabajo(datosEnvio);
       final trabajoId = trabajoCreado['id_trabajo'] as int;
@@ -604,6 +633,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       direccionCompleta = null;
       fechasSeleccionadas.clear();
       sinPrecio = false;
+      permiteInicioIncompleto = false;
       _fotosSeleccionadas.clear();
     });
   }
@@ -1005,8 +1035,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               children: [
                 _buildFieldLabel('Horario de inicio', required: true),
                 GestureDetector(
-                  onTap: () => _seleccionarHora(horarioInicioController,
-                      abrirSiguiente: true),
+                  onTap: () => _seleccionarHora(
+                    horarioInicioController,
+                    abrirSiguiente: true,
+                    esHoraInicio: true,
+                  ),
                   child: AbsorbPointer(
                     child: TextFormField(
                       controller: horarioInicioController,
@@ -1028,7 +1061,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               children: [
                 _buildFieldLabel('Horario de fin', required: true),
                 GestureDetector(
-                  onTap: () => _seleccionarHora(horarioFinController),
+                  onTap: () => _seleccionarHora(
+                    horarioFinController,
+                    esHoraInicio: false,
+                  ),
                   child: AbsorbPointer(
                     child: TextFormField(
                       controller: horarioFinController,
@@ -1053,17 +1089,92 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       _buildFieldLabel('Cantidad de empleados', required: true),
       DropdownButtonFormField<int>(
         value: cantidadSeleccionada,
-        items: List.generate(5, (i) => i + 1)
+        items: List.generate(10, (i) => i + 1)
             .map((n) => DropdownMenuItem(value: n, child: Text('$n')))
             .toList(),
         onChanged: (val) => setState(() {
           cantidadSeleccionada = val;
           if (!sinPrecio) salarioController.clear();
+          // Reset el switch si cambia a 1 persona
+          if (val == 1) {
+            permiteInicioIncompleto = false;
+          }
         }),
         decoration: _inputDecoration('Selecciona'),
         validator: (val) => val == null ? 'Requerido' : null,
       ),
-      const SizedBox(height: 16),
+
+      const SizedBox(height: 20),
+
+      // ✅ NUEVO: Switch para permitir inicio incompleto
+      if (cantidadSeleccionada != null && cantidadSeleccionada! > 1) ...[
+        const Text(
+          '¿Permitir inicio con cupos incompletos?',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: permiteInicioIncompleto
+                ? const Color(0xFFC5414B).withOpacity(0.1)
+                : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: permiteInicioIncompleto
+                  ? const Color(0xFFC5414B)
+                  : Colors.grey.shade300,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      permiteInicioIncompleto
+                          ? 'Sí, puede iniciar sin llenar todos los cupos'
+                          : 'No, debe esperar a que se llenen todos los cupos',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: permiteInicioIncompleto
+                            ? const Color(0xFFC5414B)
+                            : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      permiteInicioIncompleto
+                          ? 'El trabajo puede comenzar aunque no se acepten todos los postulantes'
+                          : 'Debes aceptar exactamente $cantidadSeleccionada persona(s) antes de que comience',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: permiteInicioIncompleto,
+                onChanged: (value) {
+                  setState(() {
+                    permiteInicioIncompleto = value;
+                  });
+                },
+                activeColor: const Color(0xFFC5414B),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+
       _buildFieldLabel(
           cantidadSeleccionada == null
               ? 'Precio'
@@ -1090,7 +1201,19 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           ElevatedButton(
             onPressed: () => setState(() {
               sinPrecio = !sinPrecio;
-              if (sinPrecio) salarioController.clear();
+              if (sinPrecio) {
+                salarioController.clear();
+                // ✅ AGREGAR VALORES POR DEFECTO
+                if (selectedMetodoPago == null) {
+                  selectedMetodoPago = 'EFECTIVO';
+                }
+                if (periodoPagoSeleccionado == null &&
+                    fechasSeleccionadas.isNotEmpty) {
+                  periodoPagoSeleccionado = fechasSeleccionadas.length > 1
+                      ? 'POR_DIA'
+                      : 'POR_TRABAJO';
+                }
+              }
             }),
             style: ElevatedButton.styleFrom(
               backgroundColor:

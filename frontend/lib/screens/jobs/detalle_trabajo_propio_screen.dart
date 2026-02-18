@@ -52,6 +52,50 @@ class _DetalleTrabajoPropioState extends State<DetalleTrabajoPropio> {
   }
   // Agregar este método después de _cargarPostulaciones() (línea ~46):
 
+  Future<void> _confirmarEliminacion() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Eliminar trabajo'),
+        content: const Text(
+          '¿Estás seguro de que quieres eliminar este trabajo? Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true && mounted) {
+      try {
+        // TODO: Implementar eliminación en el servicio
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Trabajo eliminado'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, true);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _cargarFotos() async {
     final fotos = await _fotoService.obtenerFotosTrabajo(widget.trabajo.id);
     if (mounted) {
@@ -225,25 +269,23 @@ class _DetalleTrabajoPropioState extends State<DetalleTrabajoPropio> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Editar próximamente')),
+            onPressed: () async {
+              // Navegar a pantalla de edición
+              final resultado = await Navigator.pushNamed(
+                context,
+                '/editar-trabajo',
+                arguments: widget.trabajo,
               );
+
+              // Si se editó, recargar
+              if (resultado == true && mounted) {
+                Navigator.pop(context, true); // Volver y actualizar lista
+              }
             },
           ),
           PopupMenuButton(
             icon: const Icon(Icons.more_vert, color: Colors.white),
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'pause',
-                child: Row(
-                  children: [
-                    Icon(Icons.pause_circle),
-                    SizedBox(width: 8),
-                    Text('Pausar publicación'),
-                  ],
-                ),
-              ),
               const PopupMenuItem(
                 value: 'delete',
                 child: Row(

@@ -14,6 +14,7 @@ enum EstadoPublicacion {
 
 class TrabajoModel {
   final int id;
+  final int? idRubro;
   final String titulo;
   final String descripcion;
   final DateTime fechaInicio;
@@ -39,9 +40,11 @@ class TrabajoModel {
   final String? nombreEmpleador;
   final int? ubicacionId;
   final String? fotoPrincipalUrl;
+  final bool permiteInicioIncompleto;
 
   TrabajoModel({
     required this.id,
+    this.idRubro,
     required this.titulo,
     required this.descripcion,
     required this.fechaInicio,
@@ -67,11 +70,13 @@ class TrabajoModel {
     this.nombreEmpleador,
     this.ubicacionId,
     this.fotoPrincipalUrl,
+    this.permiteInicioIncompleto = false,
   });
 
   factory TrabajoModel.fromJson(Map<String, dynamic> json) {
     return TrabajoModel(
       id: json['id_trabajo'] ?? 0,
+      idRubro: json['id_rubro'],
       titulo: json['titulo'] ?? '',
       descripcion: json['descripcion'] ?? '',
       fechaInicio: _parseDateTime(json['fecha_inicio'])!,
@@ -110,6 +115,7 @@ class TrabajoModel {
           json['nombre_empleador_procesado'] ?? json['nombre_empleador'],
       ubicacionId: json['ubicacion_id'],
       fotoPrincipalUrl: json['foto_principal_url'],
+      permiteInicioIncompleto: json['permite_inicio_incompleto'] ?? false,
     );
   }
 

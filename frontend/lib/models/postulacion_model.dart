@@ -4,6 +4,7 @@ class PostulacionModel {
   final int id;
   final int trabajoId;
   final int postulanteId;
+  final int? empleadoEmpresaId;
   final String estado;
   final String? mensaje;
   final double? ofertaPago;
@@ -12,7 +13,7 @@ class PostulacionModel {
   final DateTime? fechaCancelacion;
   final DateTime createdAt;
   final DateTime updatedAt;
-  
+
   final TrabajoInfo? trabajo;
   final PostulanteInfo? postulante;
 
@@ -20,6 +21,7 @@ class PostulacionModel {
     required this.id,
     required this.trabajoId,
     required this.postulanteId,
+    this.empleadoEmpresaId,
     required this.estado,
     this.mensaje,
     this.ofertaPago,
@@ -37,6 +39,7 @@ class PostulacionModel {
       id: json['id_postulacion'] ?? 0,
       trabajoId: json['trabajo_id'] ?? 0,
       postulanteId: json['postulante_id'] ?? 0,
+      empleadoEmpresaId: json['empleado_empresa_id'],
       estado: json['estado'] ?? 'PENDIENTE',
       mensaje: json['mensaje'],
       ofertaPago: json['oferta_pago']?.toDouble(),
@@ -69,6 +72,7 @@ class PostulacionModel {
       'id_postulacion': id,
       'trabajo_id': trabajoId,
       'postulante_id': postulanteId,
+      'empleado_empresa_id': empleadoEmpresaId,
       'estado': estado,
       'mensaje': mensaje,
       'oferta_pago': ofertaPago,
@@ -109,14 +113,20 @@ class PostulacionModel {
   }
 
   bool puedeCancelarse() {
-    return estado.toUpperCase() == 'PENDIENTE' || 
-           estado.toUpperCase() == 'ACEPTADO';
+    return estado.toUpperCase() == 'PENDIENTE' ||
+        estado.toUpperCase() == 'ACEPTADO';
+  }
+
+  // ✅ NUEVO: Getter para acceder al nombre con empresa
+  String? get nombreConEmpresa {
+    return postulante?.nombreConEmpresa;
   }
 
   PostulacionModel copyWith({
     int? id,
     int? trabajoId,
     int? postulanteId,
+    int? empleadoEmpresaId,
     String? estado,
     String? mensaje,
     double? ofertaPago,
@@ -132,6 +142,7 @@ class PostulacionModel {
       id: id ?? this.id,
       trabajoId: trabajoId ?? this.trabajoId,
       postulanteId: postulanteId ?? this.postulanteId,
+      empleadoEmpresaId: empleadoEmpresaId ?? this.empleadoEmpresaId,
       estado: estado ?? this.estado,
       mensaje: mensaje ?? this.mensaje,
       ofertaPago: ofertaPago ?? this.ofertaPago,
@@ -208,6 +219,7 @@ class PostulanteInfo {
   final String? fotoPerfil;
   final double? puntajePromedio;
   final bool esEmpresa;
+  final String? nombreEmpresa;
 
   PostulanteInfo({
     required this.id,
@@ -215,19 +227,62 @@ class PostulanteInfo {
     this.fotoPerfil,
     this.puntajePromedio,
     required this.esEmpresa,
+    this.nombreEmpresa,
   });
 
-    factory PostulanteInfo.fromJson(Map<String, dynamic> json) {
+  factory PostulanteInfo.fromJson(Map<String, dynamic> json) {
     String nombre = 'Usuario';
     String? fotoPerfil;
     double? puntaje;
     bool esEmpresa = false;
-    
+    String? nombreEmpresa;
+
     try {
-      // ✅ PRIMERO: Verificar usuario_persona
+      print('🔍 PostulanteInfo - JSON completo: $json');
+
+      // ✅ PRIMERO: Verificar si hay empleado_empresa (viene del padre, no del postulante)
+      // Este campo viene directamente del SELECT de postulacion, NO de usuario
+      if (json['empleado_empresa'] != null) {
+        final empleadoData = json['empleado_empresa'];
+        print('🔍 EMPLEADO_EMPRESA detectado: $empleadoData');
+
+        if (empleadoData is Map<String, dynamic>) {
+          final nombreEmpleado = empleadoData['nombre'] ?? '';
+          final apellidoEmpleado = empleadoData['apellido'] ?? '';
+
+          if (nombreEmpleado.isNotEmpty || apellidoEmpleado.isNotEmpty) {
+            nombre = '$nombreEmpleado $apellidoEmpleado'.trim();
+            fotoPerfil = empleadoData['foto_de_perfil'];
+            esEmpresa = true;
+
+            // Intentar obtener nombre de empresa del postulante
+            if (json['usuario_empresa'] != null) {
+              final empresaData = json['usuario_empresa'];
+              if (empresaData is List && empresaData.isNotEmpty) {
+                nombreEmpresa = empresaData[0]['nombre_corporativo'];
+              } else if (empresaData is Map<String, dynamic>) {
+                nombreEmpresa = empresaData['nombre_corporativo'];
+              }
+            }
+
+            print('✅ Empleado de empresa detectado: $nombre de $nombreEmpresa');
+
+            return PostulanteInfo(
+              id: json['id_usuario'] ?? 0,
+              nombre: nombre,
+              fotoPerfil: fotoPerfil,
+              puntajePromedio: puntaje,
+              esEmpresa: esEmpresa,
+              nombreEmpresa: nombreEmpresa,
+            );
+          }
+        }
+      }
+
+      // ✅ SEGUNDO: Verificar usuario_persona
       if (json['usuario_persona'] != null) {
         final personaData = json['usuario_persona'];
-        
+
         if (personaData is List && personaData.isNotEmpty) {
           final persona = personaData[0];
           if (persona is Map<String, dynamic>) {
@@ -236,22 +291,34 @@ class PostulanteInfo {
             puntaje = persona['puntaje_promedio']?.toDouble();
             esEmpresa = false;
           }
+        } else if (personaData is Map<String, dynamic>) {
+          nombre = '${personaData['nombre']} ${personaData['apellido']}'.trim();
+          fotoPerfil = personaData['foto_perfil_url'];
+          puntaje = personaData['puntaje_promedio']?.toDouble();
+          esEmpresa = false;
         }
       }
-      // ✅ SEGUNDO: Si NO hay persona, verificar empresa
+      // ✅ TERCERO: Si NO hay persona, verificar empresa
       else if (json['usuario_empresa'] != null) {
         final empresaData = json['usuario_empresa'];
-        
+
         if (empresaData is List && empresaData.isNotEmpty) {
           final empresa = empresaData[0];
           if (empresa is Map<String, dynamic>) {
-            nombre = empresa['nombre_corporativo'] ?? 'Empresa';
+            nombreEmpresa = empresa['nombre_corporativo'] ?? 'Empresa';
+            puntaje = empresa['puntaje_promedio']?.toDouble();
+            nombre = nombreEmpresa ?? 'Empresa';
             esEmpresa = true;
           }
+        } else if (empresaData is Map<String, dynamic>) {
+          nombreEmpresa = empresaData['nombre_corporativo'] ?? 'Empresa';
+          puntaje = empresaData['puntaje_promedio']?.toDouble();
+          nombre = nombreEmpresa ?? 'Empresa';
+          esEmpresa = true;
         }
       }
     } catch (e) {
-      print('⚠️ Error: $e');
+      print('⚠️ Error parseando PostulanteInfo: $e');
     }
 
     return PostulanteInfo(
@@ -260,16 +327,26 @@ class PostulanteInfo {
       fotoPerfil: fotoPerfil,
       puntajePromedio: puntaje,
       esEmpresa: esEmpresa,
+      nombreEmpresa: nombreEmpresa,
     );
   }
 
   String getIniciales() {
     if (nombre.isEmpty || nombre == 'Usuario') return '?';
-    
+
     final palabras = nombre.split(' ');
-    if (palabras.length >= 2 && palabras[0].isNotEmpty && palabras[1].isNotEmpty) {
+    if (palabras.length >= 2 &&
+        palabras[0].isNotEmpty &&
+        palabras[1].isNotEmpty) {
       return '${palabras[0][0]}${palabras[1][0]}'.toUpperCase();
     }
-    return nombre.length > 0 ? nombre[0].toUpperCase() : '?';
+    return nombre.isNotEmpty ? nombre[0].toUpperCase() : '?';
+  }
+
+  String get nombreConEmpresa {
+    if (nombreEmpresa != null && nombreEmpresa!.isNotEmpty) {
+      return '$nombre ($nombreEmpresa)';
+    }
+    return nombre;
   }
 }

@@ -88,15 +88,15 @@ class TrabajoService {
 // 📋 TRAER TRABAJOS DE OTROS (solo PUBLICADO)
 // ============================================
 
-Future<List<TrabajoModel>> getTrabajos({int from = 0, int to = 19}) async {
-  try {
-    final idUsuario = await AuthService.getCurrentUserId();
+  Future<List<TrabajoModel>> getTrabajos({int from = 0, int to = 19}) async {
+    try {
+      final idUsuario = await AuthService.getCurrentUserId();
 
-    print('🔍 Cargando trabajos donde empleador_id != $idUsuario');
+      print('🔍 Cargando trabajos donde empleador_id != $idUsuario');
 
-    final response = await supabase
-        .from('trabajo')
-        .select('''
+      final response = await supabase
+          .from('trabajo')
+          .select('''
       *,
       rubro:id_rubro(id_rubro, nombre),
       ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
@@ -113,119 +113,121 @@ Future<List<TrabajoModel>> getTrabajos({int from = 0, int to = 19}) async {
       ),
       trabajo_foto(foto_url, es_principal)
     ''')
-        .neq('empleador_id', idUsuario)
-        .eq('estado_publicacion', 'PUBLICADO')
-        .range(from, to)
-        .order('created_at', ascending: false);
+          .neq('empleador_id', idUsuario)
+          .eq('estado_publicacion', 'PUBLICADO')
+          .range(from, to)
+          .order('created_at', ascending: false);
 
-    print('✅ Trabajos encontrados: ${(response as List).length}');
+      print('✅ Trabajos encontrados: ${(response as List).length}');
 
-    // ✅ CONVERTIR A MODELOS
-    final trabajos = (response as List).map((json) {
-      // Procesar nombre del empleador
-      String? nombreEmpleador;
+      // ✅ CONVERTIR A MODELOS
+      final trabajos = (response as List).map((json) {
+        // Procesar nombre del empleador
+        String? nombreEmpleador;
 
-      if (json['usuario'] != null) {
-        final usuario = json['usuario'];
+        if (json['usuario'] != null) {
+          final usuario = json['usuario'];
 
-        if (usuario['usuario_persona'] != null &&
-            (usuario['usuario_persona'] is List &&
-                (usuario['usuario_persona'] as List).isNotEmpty)) {
-          final persona = (usuario['usuario_persona'] as List)[0];
-          nombreEmpleador = '${persona['nombre']} ${persona['apellido']}';
-        } else if (usuario['usuario_empresa'] != null &&
-            (usuario['usuario_empresa'] is List &&
-                (usuario['usuario_empresa'] as List).isNotEmpty)) {
-          final empresa = (usuario['usuario_empresa'] as List)[0];
-          nombreEmpleador = empresa['nombre_corporativo'];
-        }
-      }
-
-      json['nombre_empleador_procesado'] = nombreEmpleador;
-
-      String? fotoPrincipalUrl;
-      if (json['trabajo_foto'] != null) {
-        final fotos = json['trabajo_foto'];
-        if (fotos is List && fotos.isNotEmpty) {
-          try {
-            final fotoPrincipal = fotos.firstWhere(
-              (f) => f['es_principal'] == true,
-              orElse: () => fotos[0],
-            );
-            fotoPrincipalUrl = fotoPrincipal['foto_url'];
-          } catch (e) {
-            print('⚠️ Error procesando foto: $e');
+          if (usuario['usuario_persona'] != null &&
+              (usuario['usuario_persona'] is List &&
+                  (usuario['usuario_persona'] as List).isNotEmpty)) {
+            final persona = (usuario['usuario_persona'] as List)[0];
+            nombreEmpleador = '${persona['nombre']} ${persona['apellido']}';
+          } else if (usuario['usuario_empresa'] != null &&
+              (usuario['usuario_empresa'] is List &&
+                  (usuario['usuario_empresa'] as List).isNotEmpty)) {
+            final empresa = (usuario['usuario_empresa'] as List)[0];
+            nombreEmpleador = empresa['nombre_corporativo'];
           }
         }
-      }
-      json['foto_principal_url'] = fotoPrincipalUrl;
 
-      return TrabajoModel.fromJson(json);
-    }).toList();
+        json['nombre_empleador_procesado'] = nombreEmpleador;
 
-    // ✅ FILTRAR TRABAJOS QUE YA FINALIZARON (fecha + hora)
-    final now = DateTime.now();
-    
-    final trabajosFiltrados = trabajos.where((trabajo) {
-      // Si no tiene fecha_fin, mantenerlo (trabajo indefinido)
-      if (trabajo.fechaFin == null) {
-        print('✅ Trabajo "${trabajo.titulo}" - Sin fecha_fin, se mantiene');
-        return true;
-      }
-      
-      // Obtener fecha_fin y horario_fin
-      final fechaFin = trabajo.fechaFin!;
-      final horarioFin = trabajo.horarioFin; // Ej: "18:00"
-      
-      // Si no tiene horario_fin, comparar solo fecha
-      if (horarioFin == null || horarioFin.isEmpty) {
-        final soloFecha = fechaFin.isAfter(DateTime(now.year, now.month, now.day)) ||
-                          fechaFin.isAtSameMomentAs(DateTime(now.year, now.month, now.day));
-        print('✅ Trabajo "${trabajo.titulo}" - Sin horario_fin, comparando solo fecha: $soloFecha');
-        return soloFecha;
-      }
-      
-      // Parsear horario_fin (formato esperado: "HH:mm")
-      try {
-        final partes = horarioFin.split(':');
-        if (partes.length != 2) {
-          print('⚠️ Trabajo "${trabajo.titulo}" - Formato horario inválido: $horarioFin, se mantiene');
-          return true; // Formato inválido, mantener
+        String? fotoPrincipalUrl;
+        if (json['trabajo_foto'] != null) {
+          final fotos = json['trabajo_foto'];
+          if (fotos is List && fotos.isNotEmpty) {
+            try {
+              final fotoPrincipal = fotos.firstWhere(
+                (f) => f['es_principal'] == true,
+                orElse: () => fotos[0],
+              );
+              fotoPrincipalUrl = fotoPrincipal['foto_url'];
+            } catch (e) {
+              print('⚠️ Error procesando foto: $e');
+            }
+          }
         }
-        
-        final hora = int.parse(partes[0]);
-        final minuto = int.parse(partes[1]);
-        
-        // Crear DateTime completo: fecha_fin + horario_fin
-        final fechaHoraFin = DateTime(
-          fechaFin.year,
-          fechaFin.month,
-          fechaFin.day,
-          hora,
-          minuto,
-        );
-        
-        // ✅ Mostrar SOLO si NO ha pasado la fecha/hora de finalización
-        final deberiaMostrarse = fechaHoraFin.isAfter(now);
-        
-        return deberiaMostrarse;
-        
-      } catch (e) {
-        print('⚠️ Error parseando horario_fin "$horarioFin" del trabajo "${trabajo.titulo}": $e');
-        return true; // Si hay error, mantener el trabajo
-      }
-    }).toList();
+        json['foto_principal_url'] = fotoPrincipalUrl;
 
-    print('✅ Trabajos después de filtrar por fecha/hora: ${trabajosFiltrados.length}');
-    
-    return trabajosFiltrados;
-    
-  } catch (e) {
-    print('❌ Error al cargar trabajos: $e');
-    throw Exception('Error al cargar trabajos: $e');
+        return TrabajoModel.fromJson(json);
+      }).toList();
+
+      // ✅ FILTRAR TRABAJOS QUE YA FINALIZARON (fecha + hora)
+      final now = DateTime.now();
+
+      final trabajosFiltrados = trabajos.where((trabajo) {
+        // Si no tiene fecha_fin, mantenerlo (trabajo indefinido)
+        if (trabajo.fechaFin == null) {
+          print('✅ Trabajo "${trabajo.titulo}" - Sin fecha_fin, se mantiene');
+          return true;
+        }
+
+        // Obtener fecha_fin y horario_fin
+        final fechaFin = trabajo.fechaFin!;
+        final horarioFin = trabajo.horarioFin; // Ej: "18:00"
+
+        // Si no tiene horario_fin, comparar solo fecha
+        if (horarioFin == null || horarioFin.isEmpty) {
+          final soloFecha = fechaFin
+                  .isAfter(DateTime(now.year, now.month, now.day)) ||
+              fechaFin.isAtSameMomentAs(DateTime(now.year, now.month, now.day));
+          print(
+              '✅ Trabajo "${trabajo.titulo}" - Sin horario_fin, comparando solo fecha: $soloFecha');
+          return soloFecha;
+        }
+
+        // Parsear horario_fin (formato esperado: "HH:mm")
+        try {
+          final partes = horarioFin.split(':');
+          if (partes.length != 2) {
+            print(
+                '⚠️ Trabajo "${trabajo.titulo}" - Formato horario inválido: $horarioFin, se mantiene');
+            return true; // Formato inválido, mantener
+          }
+
+          final hora = int.parse(partes[0]);
+          final minuto = int.parse(partes[1]);
+
+          // Crear DateTime completo: fecha_fin + horario_fin
+          final fechaHoraFin = DateTime(
+            fechaFin.year,
+            fechaFin.month,
+            fechaFin.day,
+            hora,
+            minuto,
+          );
+
+          // ✅ Mostrar SOLO si NO ha pasado la fecha/hora de finalización
+          final deberiaMostrarse = fechaHoraFin.isAfter(now);
+
+          return deberiaMostrarse;
+        } catch (e) {
+          print(
+              '⚠️ Error parseando horario_fin "$horarioFin" del trabajo "${trabajo.titulo}": $e');
+          return true; // Si hay error, mantener el trabajo
+        }
+      }).toList();
+
+      print(
+          '✅ Trabajos después de filtrar por fecha/hora: ${trabajosFiltrados.length}');
+
+      return trabajosFiltrados;
+    } catch (e) {
+      print('❌ Error al cargar trabajos: $e');
+      throw Exception('Error al cargar trabajos: $e');
+    }
   }
-}
-
 
   // ============================================
   // 📋 TRAER MIS TRABAJOS (todos los estados)
@@ -410,8 +412,8 @@ Future<List<TrabajoModel>> getTrabajos({int from = 0, int to = 19}) async {
   }
 
   // ============================================
-  // ✅ CREAR TRABAJO
-  // ============================================
+// ✅ CREAR TRABAJO (CORREGIDO)
+// ============================================
 
   Future<Map<String, dynamic>> createTrabajo(Map<String, dynamic> datos) async {
     try {
@@ -419,10 +421,11 @@ Future<List<TrabajoModel>> getTrabajos({int from = 0, int to = 19}) async {
 
       // 1. Crear el pago primero
       final pagoData = {
-        'monto': datos['salario'] ?? 0,
-        'metodo': datos['metodo_pago'],
+        'monto': datos['salario'] ?? 0.0, // ✅ Asegurar 0.0
+        'metodo': datos['metodo_pago'] ?? 'EFECTIVO', // ✅ Valor por defecto
         'estado': 'PENDIENTE',
-        'periodo': datos['periodo_pago'],
+        'periodo':
+            datos['periodo_pago'] ?? 'POR_TRABAJO', // ✅ Valor por defecto
       };
 
       print('💰 Creando pago: $pagoData');
@@ -433,7 +436,25 @@ Future<List<TrabajoModel>> getTrabajos({int from = 0, int to = 19}) async {
       final idPago = pagoResponse['id_pago'];
       print('✅ Pago creado con ID: $idPago');
 
-      // 2. Crear el trabajo
+      // ✅ 2. FORMATEAR HORARIOS CORRECTAMENTE (agregar :00 para segundos)
+      final horarioInicio = datos['horario_inicio'];
+      final horarioFin = datos['horario_fin'];
+
+      // Asegurar formato HH:mm:ss para PostgreSQL
+      final horarioInicioFormatted =
+          horarioInicio.contains(':') && horarioInicio.split(':').length == 2
+              ? '$horarioInicio:00'
+              : horarioInicio;
+
+      final horarioFinFormatted =
+          horarioFin.contains(':') && horarioFin.split(':').length == 2
+              ? '$horarioFin:00'
+              : horarioFin;
+
+      print(
+          '⏰ Horarios formateados: $horarioInicioFormatted - $horarioFinFormatted');
+
+      // 3. Crear el trabajo
       final trabajoData = {
         'empleador_id': datos['empleador_id'],
         'id_pago': idPago,
@@ -442,11 +463,12 @@ Future<List<TrabajoModel>> getTrabajos({int from = 0, int to = 19}) async {
         'descripcion': datos['descripcion'],
         'fecha_inicio': datos['fecha_inicio'],
         'fecha_fin': datos['fecha_fin'],
-        'horario_inicio': datos['horario_inicio'],
-        'horario_fin': datos['horario_fin'],
+        'horario_inicio': horarioInicioFormatted, // ✅ CORREGIDO
+        'horario_fin': horarioFinFormatted, // ✅ CORREGIDO
         'ubicacion_id': datos['ubicacion_id'],
         'metodo_pago': datos['metodo_pago'],
         'cantidad_empleados_requeridos': datos['cantidad_empleados_requeridos'],
+        'permite_inicio_incompleto': datos['permite_inicio_incompleto'] ?? false,
         'urgencia': datos['urgencia'] ?? 'ESTANDAR',
         'estado_publicacion': 'PUBLICADO',
       };

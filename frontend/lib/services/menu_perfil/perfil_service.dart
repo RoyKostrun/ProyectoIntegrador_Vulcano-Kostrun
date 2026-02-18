@@ -1,4 +1,4 @@
-// lib/services/perfil_service.dart
+// lib/services/menu_perfil/perfil_service.dart
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/menu_perfil/perfil_model.dart';
@@ -13,19 +13,24 @@ class PerfilService {
     try {
       print('📊 Obteniendo datos básicos del usuario ID: $userId');
 
-      // Obtener el usuario con sus relaciones
-      final response = await _supabase.from('usuario').select('''
+      final response = await _supabase
+          .from('usuario')
+          .select('''
             id_usuario,
             usuario_persona(
               nombre,
               apellido,
               fecha_nacimiento,
-              genero
+              genero,
+              foto_perfil_url
             ),
             usuario_empresa(
-              nombre_corporativo
+              nombre_corporativo,
+              logo_url
             )
-          ''').eq('id_usuario', userId).single();
+          ''')
+          .eq('id_usuario', userId)
+          .single();
 
       print('✅ Datos básicos obtenidos');
       return response;
@@ -38,24 +43,23 @@ class PerfilService {
   // ========================================
   // ⭐ OBTENER RESEÑAS DEL USUARIO
   // ========================================
-// ========================================
-// ⭐ OBTENER RESEÑAS DEL USUARIO
-// ========================================
   Future<List<ReseniaModel>> getReseniasUsuario(int userId) async {
     try {
       print('📊 Obteniendo reseñas del usuario ID: $userId');
 
-      final response = await _supabase.from('calificacion').select('''
-          id_calificacion,
-          puntuacion,
-          comentario,
-          recomendacion,
-          fecha,
-          emisor_id,
-          trabajo:id_trabajo(
-            titulo
-          )
-        ''').eq('receptor_id', userId).order('fecha', ascending: false);
+      final response = await _supabase
+          .from('calificacion')
+          .select('''
+            id_calificacion,
+            puntuacion,
+            comentario,
+            recomendacion,
+            fecha,
+            id_emisor,
+            id_publicacion
+          ''')
+          .eq('id_receptor', userId)
+          .order('fecha', ascending: false);
 
       print('✅ ${response.length} reseñas obtenidas');
 
@@ -68,40 +72,18 @@ class PerfilService {
     }
   }
 
-// ========================================
-// 📧 VERIFICAR SI ES EMPLEADO
-// ========================================
-  Future<bool> esEmpleado(int userId) async {
-    try {
-      // ✅ Verificar en usuario_persona - solo verificar si existe el registro
-      final response = await _supabase
-          .from('usuario_persona')
-          .select(
-              'id_usuario') // ✅ Usar id_usuario en lugar de id_usuario_persona
-          .eq('id_usuario', userId)
-          .maybeSingle();
-
-      return response != null;
-    } catch (e) {
-      print('❌ Error al verificar empleado: $e');
-      return false;
-    }
-  }
-
   // ========================================
   // 📊 CALCULAR PROMEDIO DE CALIFICACIÓN
   // ========================================
   Future<double> getPromedioCalificacion(int userId) async {
     try {
       final resenias = await getReseniasUsuario(userId);
-
+      
       if (resenias.isEmpty) return 0.0;
 
       final suma = resenias.fold<int>(
         0,
-        (total, resenia) =>
-            total +
-            resenia.puntuacion, // ✅ Cambiado de 'calificacion' a 'puntuacion'
+        (total, resenia) => total + resenia.puntuacion,
       );
 
       return suma / resenias.length;
@@ -112,29 +94,32 @@ class PerfilService {
   }
 
   // ========================================
-  // 🏷️ OBTENER CATEGORÍAS DEL EMPLEADO
+  // 🏷️ OBTENER RUBROS DEL USUARIO (NO CATEGORÍAS)
   // ========================================
   Future<List<CategoriaModel>> getCategoriasEmpleado(int empleadoId) async {
     try {
-      print('📊 Obteniendo categorías del empleado ID: $empleadoId');
+      print('📊 Obteniendo rubros del usuario ID: $empleadoId');
 
-      // Primero verificar que existe la tabla empleado_categoria
-      final response = await _supabase.from('empleado_categoria').select('''
-            categoria:id_categoria(
-              id_categoria,
+      // ✅ Usar usuario_rubro en lugar de empleado_categoria
+      final response = await _supabase
+          .from('usuario_rubro')
+          .select('''
+            rubro:id_rubro(
+              id_rubro,
               nombre,
-              descripcion,
-              icono
+              descripcion
             )
-          ''').eq('empleado_id', empleadoId);
+          ''')
+          .eq('id_usuario', empleadoId)
+          .eq('activo', true);
 
-      print('✅ ${response.length} categorías obtenidas');
+      print('✅ ${response.length} rubros obtenidos');
 
       return (response as List)
-          .map((item) => CategoriaModel.fromJson(item['categoria']))
+          .map((item) => CategoriaModel.fromJson(item['rubro']))
           .toList();
     } catch (e) {
-      print('❌ Error al obtener categorías: $e');
+      print('❌ Error al obtener rubros: $e');
       return [];
     }
   }
@@ -146,10 +131,11 @@ class PerfilService {
     try {
       print('📊 Contando trabajos completados del usuario ID: $userId');
 
+      // ✅ Buscar por postulante_id y estado COMPLETADO
       final response = await _supabase
           .from('postulacion')
           .select('id_postulacion')
-          .eq('empleado_id', userId)
+          .eq('postulante_id', userId)
           .eq('estado', 'COMPLETADO');
 
       print('✅ ${response.length} trabajos completados');
@@ -167,39 +153,16 @@ class PerfilService {
     try {
       print('📊 Obteniendo ubicación del usuario ID: $userId');
 
-      // Intentar obtener desde empleado primero
-      try {
-        final empleadoResponse = await _supabase.from('empleado').select('''
-              ubicacion:ubicacion_id(
-                ciudad,
-                provincia
-              )
-            ''').eq('id_usuario', userId).maybeSingle();
+      // ✅ Buscar en tabla ubicacion directamente por id_usuario
+      final response = await _supabase
+          .from('ubicacion')
+          .select('ciudad, provincia')
+          .eq('id_usuario', userId)
+          .eq('es_principal', true)
+          .maybeSingle();
 
-        if (empleadoResponse != null && empleadoResponse['ubicacion'] != null) {
-          final ubicacion = empleadoResponse['ubicacion'];
-          return '${ubicacion['ciudad']}, ${ubicacion['provincia']}';
-        }
-      } catch (e) {
-        print('No se encontró ubicación en empleado');
-      }
-
-      // Si no, intentar desde empleador
-      try {
-        final empleadorResponse = await _supabase.from('empleador').select('''
-              ubicacion:ubicacion_id(
-                ciudad,
-                provincia
-              )
-            ''').eq('id_usuario', userId).maybeSingle();
-
-        if (empleadorResponse != null &&
-            empleadorResponse['ubicacion'] != null) {
-          final ubicacion = empleadorResponse['ubicacion'];
-          return '${ubicacion['ciudad']}, ${ubicacion['provincia']}';
-        }
-      } catch (e) {
-        print('No se encontró ubicación en empleador');
+      if (response != null) {
+        return '${response['ciudad']}, ${response['provincia']}';
       }
 
       return null;
@@ -210,17 +173,45 @@ class PerfilService {
   }
 
   // ========================================
+  // 📧 VERIFICAR SI ES EMPLEADO
+  // ========================================
+  Future<bool> esEmpleado(int userId) async {
+    try {
+      final response = await _supabase
+          .from('usuario_persona')
+          .select('es_empleado')
+          .eq('id_usuario', userId)
+          .maybeSingle();
+
+      return response?['es_empleado'] == true;
+    } catch (e) {
+      print('❌ Error al verificar empleado: $e');
+      return false;
+    }
+  }
+
+  // ========================================
   // 🏢 VERIFICAR SI ES EMPLEADOR
   // ========================================
   Future<bool> esEmpleador(int userId) async {
     try {
-      final response = await _supabase
-          .from('empleador')
-          .select('id_empleador')
+      // Verificar en usuario_persona
+      final personaResponse = await _supabase
+          .from('usuario_persona')
+          .select('es_empleador')
           .eq('id_usuario', userId)
           .maybeSingle();
 
-      return response != null;
+      if (personaResponse?['es_empleador'] == true) return true;
+
+      // Verificar en usuario_empresa
+      final empresaResponse = await _supabase
+          .from('usuario_empresa')
+          .select('es_empleador')
+          .eq('id_usuario', userId)
+          .maybeSingle();
+
+      return empresaResponse?['es_empleador'] == true;
     } catch (e) {
       print('❌ Error al verificar empleador: $e');
       return false;

@@ -92,7 +92,6 @@ class MyApp extends StatelessWidget {
       ],
       initialRoute: '/login',
       onGenerateRoute: (settings) {
-        // ✅ RUTAS CON ARGUMENTOS DINÁMICOS
         switch (settings.name) {
           case '/chat':
             final args = settings.arguments as Map<String, dynamic>;

@@ -40,7 +40,7 @@ class AppLogo extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(size * 0.2),
             child: Image.asset(
-              'assets/images/changapp_logo.png',
+              'images/changapp_logo3.png',
               width: size,
               height: size,
               fit: BoxFit.contain,

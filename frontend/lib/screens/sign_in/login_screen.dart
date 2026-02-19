@@ -25,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _passwordError = false;
   String? _emailErrorMessage;
   String? _passwordErrorMessage;
-  String? _generalErrorMessage; // ✅ NUEVO: Error general del login
+  String? _generalErrorMessage;
 
   @override
   void initState() {
@@ -229,8 +229,12 @@ class _LoginScreenState extends State<LoginScreen> {
             color: Colors.black,
             child: SafeArea(
               bottom: false,
-              child: Center(
-                child: AppLogo(size: 100, isDarkBackground: true),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 50),
+                child: Align(
+                  alignment: const Alignment(0, 0.6),
+                  child: AppLogo(size: 100, isDarkBackground: true),
+                ),
               ),
             ),
           ),
@@ -317,7 +321,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: _onForgotPassword, // ✅ CORREGIDO
+                          onPressed: _onForgotPassword,
                           child: const Text(
                             '¿Olvidaste tu contraseña?',
                             style: TextStyle(

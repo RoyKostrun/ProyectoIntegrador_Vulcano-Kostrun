@@ -44,12 +44,13 @@ class CalificacionService {
           .eq('empleador_id', idEmisor)
           .maybeSingle();
 
+      // ✅ CAMBIAR: Buscar con estado FINALIZADO en lugar de ACEPTADO
       final esEmpleado = await _supabase
           .from('postulacion')
           .select('postulante_id')
           .eq('trabajo_id', trabajoId)
           .eq('postulante_id', idEmisor)
-          .eq('estado', 'ACEPTADO')
+          .eq('estado', 'FINALIZADO') // ✅ CAMBIO AQUÍ
           .maybeSingle();
 
       if (esEmpleador == null && esEmpleado == null) {
@@ -95,10 +96,24 @@ class CalificacionService {
         },
       );
 
-      await _supabase.from('usuario_persona').update({
-        'puntaje_promedio': nuevoPromedio,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id_usuario', idReceptor);
+      // ✅ Actualizar en la tabla correcta según el tipo de usuario
+      final usuarioReceptor = await _supabase
+          .from('usuario')
+          .select('tipo_usuario')
+          .eq('id_usuario', idReceptor)
+          .single();
+
+      if (usuarioReceptor['tipo_usuario'] == 'PERSONA') {
+        await _supabase.from('usuario_persona').update({
+          'puntaje_promedio': nuevoPromedio,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id_usuario', idReceptor);
+      } else {
+        await _supabase.from('usuario_empresa').update({
+          'puntaje_promedio': nuevoPromedio,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id_usuario', idReceptor);
+      }
 
       print('✅ Calificación creada y promedio actualizado');
     } catch (e) {

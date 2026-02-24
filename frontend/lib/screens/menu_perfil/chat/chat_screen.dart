@@ -413,7 +413,53 @@ class _ChatScreenState extends State<ChatScreen> {
               widget.conversacion.nombreEmpleado ?? 'No disponible',
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            // Botón Reportar
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // TODO: Implementar funcionalidad
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Función de reporte próximamente')),
+                  );
+                },
+                icon: const Icon(Icons.flag_outlined, color: Colors.orange),
+                label: const Text('Reportar usuario',
+                    style: TextStyle(color: Colors.orange)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.orange),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Botón Bloquear
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // TODO: Implementar funcionalidad
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Función de bloqueo próximamente')),
+                  );
+                },
+                icon: const Icon(Icons.block, color: Colors.red),
+                label: const Text('Bloquear usuario',
+                    style: TextStyle(color: Colors.red)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
 
             // Botón cerrar
             SizedBox(

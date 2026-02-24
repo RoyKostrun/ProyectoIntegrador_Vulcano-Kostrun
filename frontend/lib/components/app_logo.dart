@@ -41,7 +41,7 @@ class AppLogo extends StatelessWidget {
             borderRadius: BorderRadius.circular(size * 0.2),
             child: Image.asset(
               //deberia aparecer esta imagen como logo 
-              'images/changapp_logo3.png',
+              'images/changapp_logo2.png',
               width: size,
               height: size,
               fit: BoxFit.contain,

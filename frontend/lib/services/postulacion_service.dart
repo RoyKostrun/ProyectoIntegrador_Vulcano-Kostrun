@@ -137,24 +137,24 @@ class PostulacionService {
     }
   }
 
-static Future<bool> yaEstaPostulado(int trabajoId) async {
-  try {
-    final userId = await AuthService.getCurrentUserId();
+  static Future<bool> yaEstaPostulado(int trabajoId) async {
+    try {
+      final userId = await AuthService.getCurrentUserId();
 
-    final result = await _supabase
-        .from('postulacion')
-        .select('id_postulacion, estado')
-        .eq('trabajo_id', trabajoId)
-        .eq('postulante_id', userId)
-        .neq('estado', 'CANCELADO') // ✅ Esta línea es crítica
-        .limit(1);
+      final result = await _supabase
+          .from('postulacion')
+          .select('id_postulacion, estado')
+          .eq('trabajo_id', trabajoId)
+          .eq('postulante_id', userId)
+          .neq('estado', 'CANCELADO') // ✅ Esta línea es crítica
+          .limit(1);
 
-    return (result as List).isNotEmpty;
-  } catch (e) {
-    print('❌ Error verificando postulación: $e');
-    return false;
+      return (result as List).isNotEmpty;
+    } catch (e) {
+      print('❌ Error verificando postulación: $e');
+      return false;
+    }
   }
-}
 
   // ========================================
   // 4️⃣ OBTENER ESTADO DE POSTULACIÓN
@@ -451,19 +451,18 @@ static Future<bool> yaEstaPostulado(int trabajoId) async {
     try {
       print('🔍 Obteniendo postulaciones para trabajo: $trabajoId');
 
-      // ✅ QUERY COMPLETO: Incluir empleado_empresa en el JOIN
       final postulaciones = await _supabase
           .from('postulacion')
           .select('''
-          *,
-          empleado_empresa:empleado_empresa_id (
-            id_empleado,
-            nombre,
-            apellido,
-            foto_de_perfil,
-            relacion
-          )
-        ''')
+        *,
+        empleado_empresa:empleado_empresa_id (
+          id_empleado,
+          nombre,
+          apellido,
+          foto_de_perfil,
+          relacion
+        )
+      ''')
           .eq('trabajo_id', trabajoId)
           .order('fecha_postulacion', ascending: false);
 
@@ -476,29 +475,37 @@ static Future<bool> yaEstaPostulado(int trabajoId) async {
         print('   🔍 Buscando datos de usuario $postulanteId...');
 
         try {
-          // Obtener datos del usuario (empresa o persona)
           final usuario = await _supabase.from('usuario').select('''
-              id_usuario,
-              usuario_persona(
-                nombre,
-                apellido,
-                foto_perfil_url,
-                puntaje_promedio
-              ),
-              usuario_empresa(
-                nombre_corporativo,
-                puntaje_promedio
-              )
-            ''').eq('id_usuario', postulanteId).single();
+            id_usuario,
+            usuario_persona(
+              nombre,
+              apellido,
+              foto_perfil_url,
+              puntaje_promedio
+            ),
+            usuario_empresa(
+              nombre_corporativo,
+              puntaje_promedio
+            )
+          ''').eq('id_usuario', postulanteId).single();
 
           print('   ✅ Usuario encontrado: $usuario');
 
-          // Agregar datos del usuario al JSON de la postulación
-          postulacionJson['postulante'] = usuario;
+          // ✅ CRÍTICO: Crear copia para no mutar la lista original
+          final postulacionConDatos =
+              Map<String, dynamic>.from(postulacionJson);
+          postulacionConDatos['postulante'] =
+              Map<String, dynamic>.from(usuario);
 
-          // Crear modelo
+          // ✅ CRÍTICO: Pasar empleado_empresa al postulante para que PostulanteInfo lo encuentre
+          if (postulacionJson['empleado_empresa'] != null) {
+            postulacionConDatos['postulante']['empleado_empresa'] =
+                postulacionJson['empleado_empresa'];
+            print('   ✅ empleado_empresa agregado a postulante');
+          }
+
           postulacionesCompletas
-              .add(PostulacionModel.fromJson(postulacionJson));
+              .add(PostulacionModel.fromJson(postulacionConDatos));
         } catch (e) {
           print('   ⚠️ Error obteniendo usuario $postulanteId: $e');
           postulacionesCompletas

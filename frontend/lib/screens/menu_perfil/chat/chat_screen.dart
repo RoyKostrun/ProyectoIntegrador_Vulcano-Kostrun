@@ -360,120 +360,185 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _mostrarInfoTrabajo() {
+    final otroId =
+        widget.conversacion.obtenerIdOtroParticipante(widget.usuarioId);
+    final otroNombre =
+        widget.conversacion.obtenerNombreOtroParticipante(widget.usuarioId) ??
+            'Usuario';
+    final otroFoto =
+        widget.conversacion.obtenerFotoOtroParticipante(widget.usuarioId);
+    final esElEmpleador = widget.usuarioId == widget.conversacion.empleadoId;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true, // ✅ importante para que no corte
       builder: (context) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+        // ✅ SingleChildScrollView para evitar overflow
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            // Título
-            const Text(
-              'Información del trabajo',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+              // Avatar clickeable
+              GestureDetector(
+                onTap: otroId != null
+                    ? () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(
+                          context,
+                          '/perfil-publico',
+                          arguments: {'usuarioId': otroId},
+                        );
+                      }
+                    : null,
+                child: Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: const Color(0xFFC5414B),
+                      backgroundImage:
+                          otroFoto != null ? NetworkImage(otroFoto) : null,
+                      child: otroFoto == null
+                          ? Text(
+                              otroNombre[0].toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      otroNombre,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      esElEmpleador ? 'Empleador' : 'Empleado',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    ),
+                    if (otroId != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Toca para ver perfil',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: const Color(0xFFC5414B),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 12),
 
-            // Info
-            if (widget.conversacion.tituloTrabajo != null)
+              // Info del trabajo y participantes
+              if (widget.conversacion.tituloTrabajo != null)
+                _buildInfoRow(
+                    Icons.work, 'Trabajo', widget.conversacion.tituloTrabajo!),
               _buildInfoRow(
-                Icons.work,
-                'Trabajo',
-                widget.conversacion.tituloTrabajo!,
+                Icons.person,
+                'Empleador',
+                widget.conversacion.nombreEmpleador ?? 'No disponible',
+              ),
+              _buildInfoRow(
+                Icons.person_outline,
+                'Empleado',
+                widget.conversacion.nombreEmpleado ?? 'No disponible',
               ),
 
-            _buildInfoRow(
-              Icons.person,
-              'Empleador',
-              widget.conversacion.nombreEmpleador ?? 'No disponible',
-            ),
+              const SizedBox(height: 16),
 
-            _buildInfoRow(
-              Icons.person_outline,
-              'Empleado',
-              widget.conversacion.nombreEmpleado ?? 'No disponible',
-            ),
+              // Botón ver perfil completo
+              if (otroId != null)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(
+                        context,
+                        '/perfil-publico',
+                        arguments: {'usuarioId': otroId},
+                      );
+                    },
+                    icon: const Icon(Icons.person),
+                    label: Text('Ver perfil de $otroNombre'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFC5414B),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
 
-            const SizedBox(height: 16),
-
-            // Botón Reportar
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  // TODO: Implementar funcionalidad
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Función de reporte próximamente')),
-                  );
-                },
-                icon: const Icon(Icons.flag_outlined, color: Colors.orange),
-                label: const Text('Reportar usuario',
-                    style: TextStyle(color: Colors.orange)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.orange),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+              // Botón reportar
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Función de reporte próximamente')),
+                    );
+                  },
+                  icon: const Icon(Icons.flag_outlined, color: Colors.orange),
+                  label: const Text('Reportar usuario',
+                      style: TextStyle(color: Colors.orange)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.orange),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
-            // Botón Bloquear
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  // TODO: Implementar funcionalidad
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Función de bloqueo próximamente')),
-                  );
-                },
-                icon: const Icon(Icons.block, color: Colors.red),
-                label: const Text('Bloquear usuario',
-                    style: TextStyle(color: Colors.red)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+              // Botón cerrar
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.grey),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Cerrar'),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-
-            // Botón cerrar
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFC5414B),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text('Cerrar'),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -13,9 +13,7 @@ class PerfilService {
     try {
       print('📊 Obteniendo datos básicos del usuario ID: $userId');
 
-      final response = await _supabase
-          .from('usuario')
-          .select('''
+      final response = await _supabase.from('usuario').select('''
             id_usuario,
             usuario_persona(
               nombre,
@@ -28,9 +26,7 @@ class PerfilService {
               nombre_corporativo,
               logo_url
             )
-          ''')
-          .eq('id_usuario', userId)
-          .single();
+          ''').eq('id_usuario', userId).single();
 
       print('✅ Datos básicos obtenidos');
       return response;
@@ -47,19 +43,30 @@ class PerfilService {
     try {
       print('📊 Obteniendo reseñas del usuario ID: $userId');
 
-      final response = await _supabase
-          .from('calificacion')
-          .select('''
-            id_calificacion,
-            puntuacion,
-            comentario,
-            recomendacion,
-            fecha,
-            id_emisor,
-            id_publicacion
-          ''')
-          .eq('id_receptor', userId)
-          .order('fecha', ascending: false);
+      final response = await _supabase.from('calificacion').select('''
+          id_calificacion,
+          puntuacion,
+          comentario,
+          recomendacion,
+          fecha,
+          id_emisor,
+          id_publicacion,
+          emisor:id_emisor(
+            id_usuario,
+            usuario_persona(
+              nombre,
+              apellido,
+              foto_perfil_url
+            ),
+            usuario_empresa(
+              nombre_corporativo,
+              logo_url
+            )
+          ),
+          trabajo:id_publicacion(
+            titulo
+          )
+        ''').eq('id_receptor', userId).order('fecha', ascending: false);
 
       print('✅ ${response.length} reseñas obtenidas');
 
@@ -78,7 +85,7 @@ class PerfilService {
   Future<double> getPromedioCalificacion(int userId) async {
     try {
       final resenias = await getReseniasUsuario(userId);
-      
+
       if (resenias.isEmpty) return 0.0;
 
       final suma = resenias.fold<int>(
@@ -101,17 +108,13 @@ class PerfilService {
       print('📊 Obteniendo rubros del usuario ID: $empleadoId');
 
       // ✅ Usar usuario_rubro en lugar de empleado_categoria
-      final response = await _supabase
-          .from('usuario_rubro')
-          .select('''
+      final response = await _supabase.from('usuario_rubro').select('''
             rubro:id_rubro(
               id_rubro,
               nombre,
               descripcion
             )
-          ''')
-          .eq('id_usuario', empleadoId)
-          .eq('activo', true);
+          ''').eq('id_usuario', empleadoId).eq('activo', true);
 
       print('✅ ${response.length} rubros obtenidos');
 
@@ -124,25 +127,24 @@ class PerfilService {
     }
   }
 
+  Future<int> contarTrabajosCompletados(int userId) async {
+    try {
+      print('📊 Contando trabajos completados del usuario ID: $userId');
 
-Future<int> contarTrabajosCompletados(int userId) async {
-  try {
-    print('📊 Contando trabajos completados del usuario ID: $userId');
+      // ✅ Usar FINALIZADO
+      final response = await _supabase
+          .from('postulacion')
+          .select('id_postulacion')
+          .eq('postulante_id', userId)
+          .eq('estado', 'FINALIZADO');
 
-    // ✅ Usar FINALIZADO
-    final response = await _supabase
-        .from('postulacion')
-        .select('id_postulacion')
-        .eq('postulante_id', userId)
-        .eq('estado', 'FINALIZADO');
-
-    print('✅ ${response.length} trabajos completados');
-    return response.length;
-  } catch (e) {
-    print('❌ Error al contar trabajos: $e');
-    return 0;
+      print('✅ ${response.length} trabajos completados');
+      return response.length;
+    } catch (e) {
+      print('❌ Error al contar trabajos: $e');
+      return 0;
+    }
   }
-}
 
   // ========================================
   // 📍 OBTENER UBICACIÓN DEL USUARIO

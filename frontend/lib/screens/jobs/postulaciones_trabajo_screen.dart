@@ -83,14 +83,14 @@ class _PostulacionesTrabajoScreenState extends State<PostulacionesTrabajoScreen>
       // Es empleado de empresa → mostrar perfil de la empresa
       Navigator.pushNamed(
         context,
-        '/perfil-compartido',
+        '/perfil-publico',
         arguments: postulacion.postulanteId, // Este es el ID de la empresa
       );
     } else {
       // Es persona → mostrar perfil personal
       Navigator.pushNamed(
         context,
-        '/perfil-compartido',
+        '/perfil-publico',
         arguments: postulacion.postulanteId,
       );
     }

@@ -116,8 +116,17 @@ class MyApp extends StatelessWidget {
                   PostulacionesTrabajoScreen(trabajoId: trabajoId),
             );
 
-          case '/perfil-compartido':
-            final userId = settings.arguments as int;
+          case '/perfil-publico':
+            final args = settings.arguments;
+            final int userId;
+            if (args is int) {
+              userId = args;
+            } else if (args is Map) {
+              userId = args['usuarioId'] as int;
+            } else {
+              return MaterialPageRoute(
+                  builder: (context) => const LoginScreen());
+            }
             return MaterialPageRoute(
               builder: (context) => PerfilCompartidoScreen(userId: userId),
             );

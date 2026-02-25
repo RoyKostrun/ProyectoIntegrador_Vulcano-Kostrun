@@ -19,7 +19,7 @@ class PerfilCompartidoScreen extends StatefulWidget {
 
 class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
   final PerfilService _perfilService = PerfilService();
-  
+
   bool _isLoading = true;
   String _nombre = '';
   String? _ubicacion;
@@ -41,26 +41,27 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
 
     try {
       print('🔍 Cargando perfil del usuario: ${widget.userId}');
-      
+
       // Cargar datos básicos
-      final datosBasicos = await _perfilService.getDatosBasicosUsuario(widget.userId);
+      final datosBasicos =
+          await _perfilService.getDatosBasicosUsuario(widget.userId);
       print('📊 datosBasicos recibidos: $datosBasicos');
-      
+
       // ✅ Procesar nombre correctamente
       String nombreCompleto = '';
-      
+
       // Verificar usuario_persona (puede ser lista o objeto)
       if (datosBasicos['usuario_persona'] != null) {
         print('   👤 Tiene usuario_persona');
         final personaData = datosBasicos['usuario_persona'];
         print('      Tipo: ${personaData.runtimeType}');
         print('      Valor: $personaData');
-        
+
         // Extraer el objeto (si es lista, tomar primer elemento)
         final persona = personaData is List && (personaData as List).isNotEmpty
             ? personaData[0]
             : personaData;
-            
+
         if (persona != null && persona is Map<String, dynamic>) {
           final nombre = persona['nombre']?.toString() ?? '';
           final apellido = persona['apellido']?.toString() ?? '';
@@ -74,31 +75,33 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
         final empresaData = datosBasicos['usuario_empresa'];
         print('      Tipo: ${empresaData.runtimeType}');
         print('      Valor: $empresaData');
-        
+
         // Extraer el objeto (si es lista, tomar primer elemento)
         final empresa = empresaData is List && (empresaData as List).isNotEmpty
             ? empresaData[0]
             : empresaData;
-            
+
         if (empresa != null && empresa is Map<String, dynamic>) {
           nombreCompleto = empresa['nombre_corporativo']?.toString() ?? '';
           print('      ✅ Nombre empresa: "$nombreCompleto"');
         }
       }
-      
+
       // Fallback si no se encontró nombre
       if (nombreCompleto.isEmpty) {
         nombreCompleto = 'Usuario';
-        print('   ⚠️ No se encontró nombre, usando fallback: "$nombreCompleto"');
+        print(
+            '   ⚠️ No se encontró nombre, usando fallback: "$nombreCompleto"');
       }
-      
+
       _nombre = nombreCompleto;
       print('🎯 Nombre final asignado: "$_nombre"');
 
       // Cargar reseñas y calcular promedio
       _resenias = await _perfilService.getReseniasUsuario(widget.userId);
       _totalResenias = _resenias.length;
-      _calificacionPromedio = await _perfilService.getPromedioCalificacion(widget.userId);
+      _calificacionPromedio =
+          await _perfilService.getPromedioCalificacion(widget.userId);
 
       // Cargar ubicación
       _ubicacion = await _perfilService.getUbicacionUsuario(widget.userId);
@@ -109,12 +112,12 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
       // Si es empleado, cargar categorías y trabajos completados
       if (_esEmpleado) {
         _categorias = await _perfilService.getCategoriasEmpleado(widget.userId);
-        _trabajosCompletados = await _perfilService.contarTrabajosCompletados(widget.userId);
+        _trabajosCompletados =
+            await _perfilService.contarTrabajosCompletados(widget.userId);
       }
 
       print('✅ Perfil cargado completamente');
       setState(() => _isLoading = false);
-      
     } catch (e, stackTrace) {
       print('❌ ERROR cargando perfil: $e');
       print('   Stack trace: $stackTrace');
@@ -191,12 +194,16 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
   Widget _buildHeader() {
     // ✅ Helper para obtener iniciales de forma segura
     String getIniciales() {
-      if (_nombre.isEmpty || _nombre == 'Usuario' || _nombre == 'Error al cargar') {
+      if (_nombre.isEmpty ||
+          _nombre == 'Usuario' ||
+          _nombre == 'Error al cargar') {
         return '?';
       }
-      
+
       final palabras = _nombre.split(' ');
-      if (palabras.length >= 2 && palabras[0].isNotEmpty && palabras[1].isNotEmpty) {
+      if (palabras.length >= 2 &&
+          palabras[0].isNotEmpty &&
+          palabras[1].isNotEmpty) {
         return '${palabras[0][0]}${palabras[1][0]}'.toUpperCase();
       }
       return _nombre[0].toUpperCase();
@@ -384,7 +391,8 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
             runSpacing: 8,
             children: _categorias.map((categoria) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFFC5414B).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -496,13 +504,18 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
               CircleAvatar(
                 radius: 20,
                 backgroundColor: const Color(0xFFC5414B).withOpacity(0.2),
-                child: Text(
-                  resenia.getIniciales(),
-                  style: const TextStyle(
-                    color: Color(0xFFC5414B),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                backgroundImage: resenia.fotoPerfilEmisor != null
+                    ? NetworkImage(resenia.fotoPerfilEmisor!)
+                    : null,
+                child: resenia.fotoPerfilEmisor == null
+                    ? Text(
+                        resenia.getIniciales(),
+                        style: const TextStyle(
+                          color: Color(0xFFC5414B),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -530,9 +543,7 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
               Row(
                 children: List.generate(5, (index) {
                   return Icon(
-                    index < resenia.puntuacion
-                        ? Icons.star
-                        : Icons.star_border,
+                    index < resenia.puntuacion ? Icons.star : Icons.star_border,
                     color: Colors.amber,
                     size: 20,
                   );

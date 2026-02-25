@@ -22,26 +22,51 @@ class ReseniaModel {
   });
 
   factory ReseniaModel.fromJson(Map<String, dynamic> json) {
-    // Obtener nombre del emisor (puede ser persona o empresa)
     String nombreEmisor = 'Usuario';
     String? fotoPerfil;
 
     if (json['emisor'] != null) {
       final emisor = json['emisor'];
-      if (emisor['usuario_persona'] != null && emisor['usuario_persona'].isNotEmpty) {
-        final persona = emisor['usuario_persona'][0];
-        nombreEmisor = '${persona['nombre']} ${persona['apellido']}';
-        fotoPerfil = persona['foto_perfil_url'];
-      } else if (emisor['usuario_empresa'] != null && emisor['usuario_empresa'].isNotEmpty) {
-        final empresa = emisor['usuario_empresa'][0];
-        nombreEmisor = empresa['nombre_corporativo'];
+
+      // ✅ Manejar tanto List como Map
+      dynamic personaRaw = emisor['usuario_persona'];
+      dynamic empresaRaw = emisor['usuario_empresa'];
+
+      Map<String, dynamic>? persona;
+      Map<String, dynamic>? empresa;
+
+      if (personaRaw is List && personaRaw.isNotEmpty) {
+        persona = personaRaw[0] as Map<String, dynamic>;
+      } else if (personaRaw is Map<String, dynamic>) {
+        persona = personaRaw;
       }
+
+      if (empresaRaw is List && empresaRaw.isNotEmpty) {
+        empresa = empresaRaw[0] as Map<String, dynamic>;
+      } else if (empresaRaw is Map<String, dynamic>) {
+        empresa = empresaRaw;
+      }
+
+      if (persona != null) {
+        final nombre = persona['nombre']?.toString() ?? '';
+        final apellido = persona['apellido']?.toString() ?? '';
+        nombreEmisor = '$nombre $apellido'.trim();
+        fotoPerfil = persona['foto_perfil_url']?.toString();
+        print('👤 Emisor persona: $nombreEmisor | foto: $fotoPerfil');
+      } else if (empresa != null) {
+        nombreEmisor = empresa['nombre_corporativo']?.toString() ?? 'Empresa';
+        fotoPerfil = empresa['logo_url']?.toString();
+        print('🏢 Emisor empresa: $nombreEmisor | foto: $fotoPerfil');
+      } else {
+        print('⚠️ emisor sin persona ni empresa: $emisor');
+      }
+    } else {
+      print('⚠️ json sin emisor: $json');
     }
 
-    // Obtener título del trabajo
     String? tituloTrabajo;
     if (json['trabajo'] != null) {
-      tituloTrabajo = json['trabajo']['titulo'];
+      tituloTrabajo = json['trabajo']['titulo']?.toString();
     }
 
     return ReseniaModel(
@@ -49,8 +74,8 @@ class ReseniaModel {
       puntuacion: json['puntuacion'] ?? 0,
       comentario: json['comentario'],
       recomendacion: json['recomendacion'],
-      fecha: json['fecha'] != null 
-          ? DateTime.parse(json['fecha']) 
+      fecha: json['fecha'] != null
+          ? DateTime.parse(json['fecha'])
           : DateTime.now(),
       nombreEmisor: nombreEmisor,
       fotoPerfilEmisor: fotoPerfil,

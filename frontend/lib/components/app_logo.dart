@@ -20,11 +20,11 @@ class AppLogo extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             // ← CAMBIO: Fondo bordó cuando está en fondo negro
-            color: isDarkBackground ? const Color(0xFFC5414B) : Colors.white,
+            color: isDarkBackground ? const Color.fromARGB(255, 152, 47, 47) : Colors.white,
             borderRadius: BorderRadius.circular(size * 0.2),
             border: Border.all(
               // ← CAMBIO: Borde blanco cuando está en fondo negro
-              color: isDarkBackground ? Colors.white : const Color(0xFFC5414B),
+              color: isDarkBackground ? Colors.white : const Color.fromARGB(255, 152, 47, 47),
               width: 2,
             ),
             boxShadow: [
@@ -41,7 +41,7 @@ class AppLogo extends StatelessWidget {
             borderRadius: BorderRadius.circular(size * 0.2),
             child: Image.asset(
               //deberia aparecer esta imagen como logo 
-              'images/changapp_logo2.png',
+              'images/changapp_logo3.png',
               width: size,
               height: size,
               fit: BoxFit.contain,
@@ -50,7 +50,7 @@ class AppLogo extends StatelessWidget {
                   width: size,
                   height: size,
                   decoration: BoxDecoration(
-                    color: isDarkBackground ? const Color(0xFFC5414B) : Colors.grey[100],
+                    color: isDarkBackground ? const Color.fromARGB(255, 152, 47, 47) : Colors.grey[100],
                     borderRadius: BorderRadius.circular(size * 0.2),
                   ),
                   child: Center(
@@ -65,17 +65,17 @@ class AppLogo extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 28),
         Text(
           'ChangApp', // ← YA ESTÁ CORRECTO
           style: TextStyle(
-            fontSize: 28, // ← CAMBIO: Más grande como pediste
+            fontSize: 50, // ← CAMBIO: Más grande como pediste
             fontWeight: FontWeight.bold,
             color: isDarkBackground ? Colors.white : Colors.black, // ← CAMBIO: Color según fondo
             letterSpacing: 1.2, // ← CAMBIO: Espaciado para elegancia
           ),
         ),
-        const SizedBox(height: 8), // ← NUEVO
+        const SizedBox(height: 10), // ← NUEVO
         Text(
           'Polo 52 - Parque industrial', // ← NUEVO SUBTÍTULO
           style: TextStyle(

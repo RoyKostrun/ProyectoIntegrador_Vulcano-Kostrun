@@ -226,7 +226,7 @@ class _LoginScreenState extends State<LoginScreen> {
           Container(
             height: screenHeight * 0.4,
             width: double.infinity,
-            color: Colors.black,
+            color: const Color.fromARGB(255, 39, 38, 38),
             child: SafeArea(
               bottom: false,
               child: Padding(
@@ -243,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
           Expanded(
             child: Container(
               width: double.infinity,
-              color: const Color.fromARGB(255, 102, 31, 194),
+              color: const Color.fromARGB(255, 152, 47, 47),
               child: SafeArea(
                 top: false,
                 child: SingleChildScrollView(
@@ -390,7 +390,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: 50,
                           height: 4,
                           decoration: BoxDecoration(
-                              color: Colors.black,
+                              color: const Color.fromARGB(255, 51, 51, 51),
                               borderRadius: BorderRadius.circular(2)),
                         ),
                       ),

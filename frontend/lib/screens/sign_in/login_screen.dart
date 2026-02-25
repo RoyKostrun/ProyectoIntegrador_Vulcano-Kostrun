@@ -243,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
           Expanded(
             child: Container(
               width: double.infinity,
-              color: const Color(0xFFC5414B),
+              color: const Color.fromARGB(255, 102, 31, 194),
               child: SafeArea(
                 top: false,
                 child: SingleChildScrollView(

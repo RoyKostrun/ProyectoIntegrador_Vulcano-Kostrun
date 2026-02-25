@@ -69,7 +69,7 @@ class AppLogo extends StatelessWidget {
         Text(
           'ChangApp', // ← YA ESTÁ CORRECTO
           style: TextStyle(
-            fontSize: 50, // ← CAMBIO: Más grande como pediste
+            fontSize: 35, // ← CAMBIO: Más grande como pediste
             fontWeight: FontWeight.bold,
             color: isDarkBackground ? Colors.white : Colors.black, // ← CAMBIO: Color según fondo
             letterSpacing: 1.2, // ← CAMBIO: Espaciado para elegancia

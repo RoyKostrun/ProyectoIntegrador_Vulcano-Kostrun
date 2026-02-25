@@ -233,7 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 padding: const EdgeInsets.only(top: 50),
                 child: Align(
                   alignment: const Alignment(0, 0.6),
-                  child: AppLogo(size: 150, isDarkBackground: true),
+                  child: AppLogo(size: 130, isDarkBackground: true),
                 ),
               ),
             ),

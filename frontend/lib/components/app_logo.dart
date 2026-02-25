@@ -20,7 +20,7 @@ class AppLogo extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             // ← CAMBIO: Fondo bordó cuando está en fondo negro
-            color: isDarkBackground ? const Color.fromARGB(255, 152, 47, 47) : Colors.white,
+            color: isDarkBackground ? const Color.fromARGB(255, 195, 64, 64) : Colors.white,
             borderRadius: BorderRadius.circular(size * 0.2),
             border: Border.all(
               // ← CAMBIO: Borde blanco cuando está en fondo negro
@@ -69,7 +69,7 @@ class AppLogo extends StatelessWidget {
         Text(
           'ChangApp', // ← YA ESTÁ CORRECTO
           style: TextStyle(
-            fontSize: 35, // ← CAMBIO: Más grande como pediste
+            fontSize: 25, // ← CAMBIO: Más grande como pediste
             fontWeight: FontWeight.bold,
             color: isDarkBackground ? Colors.white : Colors.black, // ← CAMBIO: Color según fondo
             letterSpacing: 1.2, // ← CAMBIO: Espaciado para elegancia

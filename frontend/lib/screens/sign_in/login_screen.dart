@@ -233,7 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 padding: const EdgeInsets.only(top: 50),
                 child: Align(
                   alignment: const Alignment(0, 0.6),
-                  child: AppLogo(size: 130, isDarkBackground: true),
+                  child: AppLogo(size: 110, isDarkBackground: true),
                 ),
               ),
             ),
@@ -243,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
           Expanded(
             child: Container(
               width: double.infinity,
-              color: const Color.fromARGB(255, 152, 47, 47),
+              color: const Color.fromARGB(255, 195, 64, 64),
               child: SafeArea(
                 top: false,
                 child: SingleChildScrollView(

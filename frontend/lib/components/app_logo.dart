@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 
 class AppLogo extends StatelessWidget {
   final double size;
-  final bool isDarkBackground; // ← NUEVO PARÁMETRO
+  final bool isDarkBackground; 
   
   const AppLogo({
     Key? key, 
     this.size = 80,
-    this.isDarkBackground = false, // ← NUEVO PARÁMETRO
+    this.isDarkBackground = false, 
   }) : super(key: key);
 
   @override

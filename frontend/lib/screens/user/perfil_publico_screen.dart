@@ -23,6 +23,7 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
   bool _isLoading = true;
   String _nombre = '';
   String? _ubicacion;
+  String? _fotoPerfil; // ✅ NUEVO
   double _calificacionPromedio = 0.0;
   int _totalResenias = 0;
   int _trabajosCompletados = 0;
@@ -42,22 +43,15 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
     try {
       print('🔍 Cargando perfil del usuario: ${widget.userId}');
 
-      // Cargar datos básicos
       final datosBasicos =
           await _perfilService.getDatosBasicosUsuario(widget.userId);
       print('📊 datosBasicos recibidos: $datosBasicos');
 
-      // ✅ Procesar nombre correctamente
       String nombreCompleto = '';
 
-      // Verificar usuario_persona (puede ser lista o objeto)
       if (datosBasicos['usuario_persona'] != null) {
         print('   👤 Tiene usuario_persona');
         final personaData = datosBasicos['usuario_persona'];
-        print('      Tipo: ${personaData.runtimeType}');
-        print('      Valor: $personaData');
-
-        // Extraer el objeto (si es lista, tomar primer elemento)
         final persona = personaData is List && (personaData as List).isNotEmpty
             ? personaData[0]
             : personaData;
@@ -66,50 +60,36 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
           final nombre = persona['nombre']?.toString() ?? '';
           final apellido = persona['apellido']?.toString() ?? '';
           nombreCompleto = '$nombre $apellido'.trim();
+          _fotoPerfil = persona['foto_perfil_url']?.toString(); // ✅
           print('      ✅ Nombre construido: "$nombreCompleto"');
         }
-      }
-      // Verificar usuario_empresa (puede ser lista o objeto)
-      else if (datosBasicos['usuario_empresa'] != null) {
+      } else if (datosBasicos['usuario_empresa'] != null) {
         print('   🏢 Tiene usuario_empresa');
         final empresaData = datosBasicos['usuario_empresa'];
-        print('      Tipo: ${empresaData.runtimeType}');
-        print('      Valor: $empresaData');
-
-        // Extraer el objeto (si es lista, tomar primer elemento)
         final empresa = empresaData is List && (empresaData as List).isNotEmpty
             ? empresaData[0]
             : empresaData;
 
         if (empresa != null && empresa is Map<String, dynamic>) {
           nombreCompleto = empresa['nombre_corporativo']?.toString() ?? '';
+          _fotoPerfil = empresa['logo_url']?.toString(); // ✅
           print('      ✅ Nombre empresa: "$nombreCompleto"');
         }
       }
 
-      // Fallback si no se encontró nombre
       if (nombreCompleto.isEmpty) {
         nombreCompleto = 'Usuario';
-        print(
-            '   ⚠️ No se encontró nombre, usando fallback: "$nombreCompleto"');
       }
 
       _nombre = nombreCompleto;
-      print('🎯 Nombre final asignado: "$_nombre"');
 
-      // Cargar reseñas y calcular promedio
       _resenias = await _perfilService.getReseniasUsuario(widget.userId);
       _totalResenias = _resenias.length;
       _calificacionPromedio =
           await _perfilService.getPromedioCalificacion(widget.userId);
-
-      // Cargar ubicación
       _ubicacion = await _perfilService.getUbicacionUsuario(widget.userId);
-
-      // Verificar si es empleado o empleador
       _esEmpleado = await _perfilService.esEmpleado(widget.userId);
 
-      // Si es empleado, cargar categorías y trabajos completados
       if (_esEmpleado) {
         _categorias = await _perfilService.getCategoriasEmpleado(widget.userId);
         _trabajosCompletados =
@@ -178,28 +158,16 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
                 ),
               ),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Chat próximamente')),
-          );
-        },
-        backgroundColor: const Color(0xFFC5414B),
-        icon: const Icon(Icons.chat_bubble_outline),
-        label: const Text('Contactar'),
-      ),
     );
   }
 
   Widget _buildHeader() {
-    // ✅ Helper para obtener iniciales de forma segura
     String getIniciales() {
       if (_nombre.isEmpty ||
           _nombre == 'Usuario' ||
           _nombre == 'Error al cargar') {
         return '?';
       }
-
       final palabras = _nombre.split(' ');
       if (palabras.length >= 2 &&
           palabras[0].isNotEmpty &&
@@ -221,17 +189,22 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
       padding: const EdgeInsets.all(30),
       child: Column(
         children: [
+          // ✅ CircleAvatar con foto de perfil
           CircleAvatar(
             radius: 60,
             backgroundColor: Colors.white,
-            child: Text(
-              getIniciales(),
-              style: const TextStyle(
-                fontSize: 48,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFC5414B),
-              ),
-            ),
+            backgroundImage:
+                _fotoPerfil != null ? NetworkImage(_fotoPerfil!) : null,
+            child: _fotoPerfil == null
+                ? Text(
+                    getIniciales(),
+                    style: const TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFC5414B),
+                    ),
+                  )
+                : null,
           ),
           const SizedBox(height: 16),
           Text(
@@ -251,10 +224,7 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
                 const SizedBox(width: 4),
                 Text(
                   _ubicacion!,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white70,
-                  ),
+                  style: const TextStyle(fontSize: 14, color: Colors.white70),
                 ),
               ],
             ),
@@ -276,10 +246,7 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
               const SizedBox(width: 4),
               Text(
                 '($_totalResenias ${_totalResenias == 1 ? 'reseña' : 'reseñas'})',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.white70,
-                ),
+                style: const TextStyle(fontSize: 14, color: Colors.white70),
               ),
             ],
           ),
@@ -435,10 +402,7 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
               ),
               Text(
                 '$_totalResenias ${_totalResenias == 1 ? 'reseña' : 'reseñas'}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
             ],
           ),
@@ -457,10 +421,7 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
                     const SizedBox(height: 16),
                     Text(
                       'Aún no hay reseñas',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -473,8 +434,7 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
               itemCount: _resenias.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                final resenia = _resenias[index];
-                return _buildReseniaCard(resenia);
+                return _buildReseniaCard(_resenias[index]);
               },
             ),
         ],
@@ -532,10 +492,7 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
                     ),
                     Text(
                       _formatearFecha(resenia.fecha),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -555,11 +512,8 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
             const SizedBox(height: 12),
             Text(
               resenia.comentario!,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[700],
-                height: 1.5,
-              ),
+              style:
+                  TextStyle(fontSize: 14, color: Colors.grey[700], height: 1.5),
             ),
           ],
         ],
@@ -572,19 +526,14 @@ class _PerfilCompartidoScreenState extends State<PerfilCompartidoScreen> {
       final ahora = DateTime.now();
       final diferencia = ahora.difference(fecha);
 
-      if (diferencia.inDays == 0) {
-        return 'Hoy';
-      } else if (diferencia.inDays == 1) {
-        return 'Ayer';
-      } else if (diferencia.inDays < 7) {
-        return 'Hace ${diferencia.inDays} días';
-      } else if (diferencia.inDays < 30) {
+      if (diferencia.inDays == 0) return 'Hoy';
+      if (diferencia.inDays == 1) return 'Ayer';
+      if (diferencia.inDays < 7) return 'Hace ${diferencia.inDays} días';
+      if (diferencia.inDays < 30)
         return 'Hace ${(diferencia.inDays / 7).floor()} semanas';
-      } else if (diferencia.inDays < 365) {
+      if (diferencia.inDays < 365)
         return 'Hace ${(diferencia.inDays / 30).floor()} meses';
-      } else {
-        return 'Hace ${(diferencia.inDays / 365).floor()} años';
-      }
+      return 'Hace ${(diferencia.inDays / 365).floor()} años';
     } catch (e) {
       return 'Fecha desconocida';
     }

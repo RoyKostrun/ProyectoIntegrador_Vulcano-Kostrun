@@ -216,7 +216,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                         const SizedBox(height: 24),
                         const Divider(),
                         const SizedBox(height: 24),
-                        _buildSection('📝 Descripción', widget.trabajo.descripcion),
+                        _buildSection(
+                            '📝 Descripción', widget.trabajo.descripcion),
                         const SizedBox(height: 24),
                         const Divider(),
                         const SizedBox(height: 24),
@@ -415,7 +416,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       children: [
         const Text(
           '📅 Fechas y Horarios',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
         const SizedBox(height: 12),
         _buildInfoRow(
@@ -449,7 +451,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     if (widget.trabajo.salario != null) {
       final monto = widget.trabajo.salario!.toStringAsFixed(0);
       final periodo = _getPeriodoPagoLabel(widget.trabajo.periodoPago);
-      salarioText = esPorPersona ? '\$$monto $periodo por persona' : '\$$monto $periodo';
+      salarioText =
+          esPorPersona ? '\$$monto $periodo por persona' : '\$$monto $periodo';
     } else {
       salarioText = 'A convenir';
     }
@@ -459,7 +462,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       children: [
         const Text(
           '💵 Detalles de Pago',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
         const SizedBox(height: 12),
         _buildInfoRow(Icons.payments, 'Salario', salarioText),
@@ -469,7 +473,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
             'Total estimado ($cantidadPersonas personas)',
             '\$${(widget.trabajo.salario! * cantidadPersonas).toStringAsFixed(0)} ${_getPeriodoPagoLabel(widget.trabajo.periodoPago)}',
           ),
-        _buildInfoRow(Icons.payment, 'Método de pago', widget.trabajo.metodoPago ?? 'No especificado'),
+        _buildInfoRow(Icons.payment, 'Método de pago',
+            widget.trabajo.metodoPago ?? 'No especificado'),
         _buildInfoRow(Icons.people, 'Personas necesarias', '$cantidadPersonas'),
         if (cantidadPersonas > 1)
           _buildInfoRow(
@@ -491,7 +496,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       children: [
         const Text(
           '📍 Ubicación',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
         const SizedBox(height: 12),
         Container(
@@ -525,7 +531,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                     children: [
                       Icon(Icons.map, size: 48, color: Colors.grey[400]),
                       const SizedBox(height: 8),
-                      Text('Mapa próximamente', style: TextStyle(color: Colors.grey[600])),
+                      Text('Mapa próximamente',
+                          style: TextStyle(color: Colors.grey[600])),
                     ],
                   ),
                 ),
@@ -543,7 +550,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       children: [
         const Text(
           '👤 Publicado por',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
         const SizedBox(height: 12),
         Container(
@@ -559,8 +567,14 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                 radius: 30,
                 backgroundColor: const Color(0xFFC5414B),
                 child: Text(
-                  widget.trabajo.nombreEmpleador?.substring(0, 1).toUpperCase() ?? 'E',
-                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  widget.trabajo.nombreEmpleador
+                          ?.substring(0, 1)
+                          .toUpperCase() ??
+                      'E',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(width: 16),
@@ -583,7 +597,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                         const SizedBox(width: 4),
                         Text(
                           '4.5 • 12 trabajos',
-                          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                          style:
+                              TextStyle(fontSize: 13, color: Colors.grey[600]),
                         ),
                       ],
                     ),
@@ -593,9 +608,13 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
               IconButton(
                 icon: const Icon(Icons.arrow_forward_ios, size: 16),
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Ver perfil próximamente')),
-                  );
+                  if (widget.trabajo.empleadorId != null) {
+                    Navigator.pushNamed(
+                      context,
+                      '/perfil-publico',
+                      arguments: widget.trabajo.empleadorId,
+                    );
+                  }
                 },
               ),
             ],
@@ -617,7 +636,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                Text(label,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                 const SizedBox(height: 2),
                 Text(
                   value,
@@ -642,7 +662,10 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -2)),
+            BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, -2)),
           ],
         ),
         child: const SafeArea(
@@ -661,7 +684,10 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -2)),
+            BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, -2)),
           ],
         ),
         child: SafeArea(
@@ -682,7 +708,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                     const Expanded(
                       child: Text(
                         'Únete como empleado para postularte',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ],
@@ -708,7 +735,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
 
     if (_isAlreadyPostulated) {
       return FutureBuilder<bool>(
-        future: AuthService.getCurrentUserData().then((data) => data?.isEmpresa ?? false),
+        future: AuthService.getCurrentUserData()
+            .then((data) => data?.isEmpresa ?? false),
         builder: (context, snapshot) {
           final esEmpresa = snapshot.data ?? false;
 
@@ -717,7 +745,10 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -2)),
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2)),
               ],
             ),
             child: SafeArea(
@@ -741,7 +772,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                             color: Colors.green,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.check_circle, color: Colors.white, size: 24),
+                          child: const Icon(Icons.check_circle,
+                              color: Colors.white, size: 24),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -749,7 +781,9 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                esEmpresa ? '¡Ya postulaste empleados!' : '¡Ya te postulaste!',
+                                esEmpresa
+                                    ? '¡Ya postulaste empleados!'
+                                    : '¡Ya te postulaste!',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -761,7 +795,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                                 esEmpresa
                                     ? 'Gestiona tus postulaciones abajo'
                                     : 'El empleador verá tu postulación',
-                                style: const TextStyle(fontSize: 13, color: Colors.black54),
+                                style: const TextStyle(
+                                    fontSize: 13, color: Colors.black54),
                               ),
                             ],
                           ),
@@ -770,7 +805,10 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  if (esEmpresa) _buildGestionPostulacionesEmpresa() else _buildBotonesPersona(),
+                  if (esEmpresa)
+                    _buildGestionPostulacionesEmpresa()
+                  else
+                    _buildBotonesPersona(),
                 ],
               ),
             ),
@@ -784,13 +822,19 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -2)),
+          BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -2)),
         ],
       ),
       child: SafeArea(
         child: ElevatedButton.icon(
-          onPressed: _isPostulating || _isSubmitting ? null : _mostrarModalPostulacion,
-          icon: Icon(_isPostulating || _isSubmitting ? Icons.hourglass_empty : Icons.work),
+          onPressed:
+              _isPostulating || _isSubmitting ? null : _mostrarModalPostulacion,
+          icon: Icon(_isPostulating || _isSubmitting
+              ? Icons.hourglass_empty
+              : Icons.work),
           label: Text(
             _isPostulating || _isSubmitting ? 'Postulando...' : '¡Me apunto!',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -812,7 +856,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       future: PostulacionService.getMisPostulaciones(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Color(0xFFC5414B)));
+          return const Center(
+              child: CircularProgressIndicator(color: Color(0xFFC5414B)));
         }
 
         final postulaciones = snapshot.data
@@ -871,7 +916,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
             backgroundColor: const Color(0xFFC5414B),
             child: Text(
               nombreEmpleado.substring(0, 1).toUpperCase(),
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(width: 12),
@@ -881,13 +927,16 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
               children: [
                 Text(
                   nombreEmpleado,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 14),
                 ),
                 const SizedBox(height: 2),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _getEstadoColorPostulacion(postulacion.estado).withOpacity(0.1),
+                    color: _getEstadoColorPostulacion(postulacion.estado)
+                        .withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -906,7 +955,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
             IconButton(
               icon: const Icon(Icons.close, size: 20),
               color: Colors.red,
-              onPressed: () => _cancelarPostulacionEmpleado(postulacion, nombreEmpleado),
+              onPressed: () =>
+                  _cancelarPostulacionEmpleado(postulacion, nombreEmpleado),
               tooltip: 'Cancelar',
             ),
           if (postulacion.estado.toUpperCase() == 'ACEPTADO')
@@ -950,7 +1000,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Cancelar postulación'),
-        content: Text('¿Confirmas que quieres cancelar la postulación de $nombreEmpleado?'),
+        content: Text(
+            '¿Confirmas que quieres cancelar la postulación de $nombreEmpleado?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -970,7 +1021,9 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
         await PostulacionService.cancelarPostulacion(postulacion.trabajoId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('✅ Postulación cancelada'), backgroundColor: Colors.orange),
+            const SnackBar(
+                content: Text('✅ Postulación cancelada'),
+                backgroundColor: Colors.orange),
           );
           await _verificarEstadoPostulacion();
         }
@@ -997,7 +1050,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       final userData = await AuthService.getCurrentUserData();
       if (userData == null) throw Exception('Usuario no autenticado');
 
-      final conversacion = await _chatService.obtenerOCrearConversacion(postulacion.id);
+      final conversacion =
+          await _chatService.obtenerOCrearConversacion(postulacion.id);
 
       if (mounted) Navigator.pop(context);
 
@@ -1015,7 +1069,9 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       if (mounted) Navigator.pop(context);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al abrir chat: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Error al abrir chat: $e'),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -1037,7 +1093,20 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   }
 
   String _formatDate(DateTime date) {
-    final months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    final months = [
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic'
+    ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
@@ -1045,14 +1114,16 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     final messageController = TextEditingController();
     final userData = await AuthService.getCurrentUserData();
 
-    final tienePendientes = await CalificacionService.tieneCalificacionesPendientes();
+    final tienePendientes =
+        await CalificacionService.tieneCalificacionesPendientes();
 
     if (tienePendientes && mounted) {
       final irACalificar = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
               Container(
@@ -1061,11 +1132,13 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                   color: Colors.orange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                child: const Icon(Icons.warning_amber_rounded,
+                    color: Colors.orange, size: 28),
               ),
               const SizedBox(width: 12),
               const Expanded(
-                child: Text('Calificaciones Pendientes', style: TextStyle(fontSize: 18)),
+                child: Text('Calificaciones Pendientes',
+                    style: TextStyle(fontSize: 18)),
               ),
             ],
           ),
@@ -1080,7 +1153,10 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
               SizedBox(height: 12),
               Text(
                 '✨ Esto ayuda a mantener la confianza en la comunidad.',
-                style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic, color: Colors.grey),
+                style: TextStyle(
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey),
               ),
             ],
           ),
@@ -1096,7 +1172,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFC5414B),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ],
@@ -1106,7 +1183,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       if (irACalificar == true && mounted) {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const CalificacionesPendientesScreen()),
+          MaterialPageRoute(
+              builder: (context) => const CalificacionesPendientesScreen()),
         );
       }
       return;
@@ -1118,7 +1196,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     if (userData?.isEmpresa == true) {
       try {
         empleados = await EmpleadoEmpresaService().obtenerEmpleados();
-        final postulacionesExistentes = await PostulacionService.getMisPostulaciones();
+        final postulacionesExistentes =
+            await PostulacionService.getMisPostulaciones();
         final empleadosYaPostulados = postulacionesExistentes
             .where((p) =>
                 p.trabajoId == widget.trabajo.id &&
@@ -1142,7 +1221,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Container(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.only(
@@ -1164,13 +1244,15 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                         color: const Color(0xFFC5414B).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.work_outline, color: Color(0xFFC5414B), size: 24),
+                      child: const Icon(Icons.work_outline,
+                          color: Color(0xFFC5414B), size: 24),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
                       child: Text(
                         '¿Postularte a este trabajo?',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -1196,25 +1278,27 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
                 if (userData?.isEmpresa == true) ...[
                   Row(
                     children: [
                       const Text(
                         'Selecciona empleado(s) *',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                       const Spacer(),
                       if (empleadosSeleccionados.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: const Color(0xFFC5414B),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
                             '${empleadosSeleccionados.length} seleccionado(s)',
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12),
                           ),
                         ),
                     ],
@@ -1230,7 +1314,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.warning_amber, color: Colors.orange.shade700),
+                          Icon(Icons.warning_amber,
+                              color: Colors.orange.shade700),
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
@@ -1253,7 +1338,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                         itemCount: empleados.length,
                         itemBuilder: (context, index) {
                           final empleado = empleados[index];
-                          final isSelected = empleadosSeleccionados.contains(empleado);
+                          final isSelected =
+                              empleadosSeleccionados.contains(empleado);
                           return CheckboxListTile(
                             value: isSelected,
                             onChanged: (bool? value) {
@@ -1268,9 +1354,12 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                             activeColor: const Color(0xFFC5414B),
                             title: Text(
                               empleado.nombreCompleto,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
                             ),
-                            subtitle: empleado.relacion != null ? Text(empleado.relacion!) : null,
+                            subtitle: empleado.relacion != null
+                                ? Text(empleado.relacion!)
+                                : null,
                             secondary: CircleAvatar(
                               radius: 20,
                               backgroundColor: const Color(0xFFC5414B),
@@ -1280,7 +1369,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                               child: empleado.fotoPerfilUrl == null
                                   ? Text(
                                       empleado.iniciales,
-                                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                                      style: const TextStyle(
+                                          color: Colors.white, fontSize: 14),
                                     )
                                   : null,
                             ),
@@ -1290,7 +1380,6 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                     ),
                   const SizedBox(height: 20),
                 ],
-
                 const Text(
                   'Mensaje para el empleador (opcional)',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
@@ -1302,7 +1391,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                   maxLength: 500,
                   decoration: InputDecoration(
                     hintText: 'Ej: Tengo 5 años de experiencia en el rubro...',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
                     filled: true,
                     fillColor: Colors.grey.shade50,
                   ),
@@ -1310,18 +1400,19 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.info_outline, size: 14, color: Colors.grey.shade600),
+                    Icon(Icons.info_outline,
+                        size: 14, color: Colors.grey.shade600),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         'Este mensaje será visible para el empleador',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
-
                 Row(
                   children: [
                     Expanded(
@@ -1338,7 +1429,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                     Expanded(
                       child: ElevatedButton.icon(
                         // ✅ CORREGIDO: Pop DESPUÉS del await, no antes
-                        onPressed: (userData?.isEmpresa == true && empleadosSeleccionados.isEmpty)
+                        onPressed: (userData?.isEmpresa == true &&
+                                empleadosSeleccionados.isEmpty)
                             ? null
                             : () async {
                                 setState(() => _isSubmitting = true);
@@ -1349,19 +1441,25 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                                     int fallidos = 0;
                                     String? ultimoError;
 
-                                    for (var empleado in empleadosSeleccionados) {
+                                    for (var empleado
+                                        in empleadosSeleccionados) {
                                       try {
                                         await PostulacionService.postularse(
                                           trabajoId: widget.trabajo.id,
-                                          mensaje: messageController.text.trim().isEmpty
+                                          mensaje: messageController.text
+                                                  .trim()
+                                                  .isEmpty
                                               ? null
                                               : messageController.text.trim(),
-                                          empleadoEmpresaId: empleado.idEmpleado,
+                                          empleadoEmpresaId:
+                                              empleado.idEmpleado,
                                         );
                                         exitosos++;
                                       } catch (e) {
                                         fallidos++;
-                                        ultimoError = e.toString().replaceAll('Exception: ', '');
+                                        ultimoError = e
+                                            .toString()
+                                            .replaceAll('Exception: ', '');
                                       }
                                     }
 
@@ -1370,26 +1468,34 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
 
                                     if (mounted) {
                                       if (exitosos > 0) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
                                           SnackBar(
                                             content: Text(
-                                              exitosos == empleadosSeleccionados.length
+                                              exitosos ==
+                                                      empleadosSeleccionados
+                                                          .length
                                                   ? '✅ $exitosos empleado(s) postulado(s) exitosamente'
                                                   : '⚠️ $exitosos postulados, $fallidos fallaron: $ultimoError',
                                             ),
-                                            backgroundColor: exitosos == empleadosSeleccionados.length
+                                            backgroundColor: exitosos ==
+                                                    empleadosSeleccionados
+                                                        .length
                                                 ? Colors.green
                                                 : Colors.orange,
-                                            duration: const Duration(seconds: 4),
+                                            duration:
+                                                const Duration(seconds: 4),
                                           ),
                                         );
                                         await _verificarEstadoPostulacion();
                                       } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
                                           SnackBar(
                                             content: Text('❌ $ultimoError'),
                                             backgroundColor: Colors.red,
-                                            duration: const Duration(seconds: 5),
+                                            duration:
+                                                const Duration(seconds: 5),
                                           ),
                                         );
                                       }
@@ -1398,18 +1504,21 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                                     // PERSONA
                                     await PostulacionService.postularse(
                                       trabajoId: widget.trabajo.id,
-                                      mensaje: messageController.text.trim().isEmpty
-                                          ? null
-                                          : messageController.text.trim(),
+                                      mensaje:
+                                          messageController.text.trim().isEmpty
+                                              ? null
+                                              : messageController.text.trim(),
                                     );
 
                                     // ✅ Pop DESPUÉS de postular exitosamente
                                     if (mounted) Navigator.pop(context);
 
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
-                                          content: Text('✅ Te has postulado exitosamente'),
+                                          content: Text(
+                                              '✅ Te has postulado exitosamente'),
                                           backgroundColor: Colors.green,
                                           duration: Duration(seconds: 3),
                                         ),
@@ -1423,14 +1532,17 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(e.toString().replaceAll('Exception: ', '')),
+                                        content: Text(e
+                                            .toString()
+                                            .replaceAll('Exception: ', '')),
                                         backgroundColor: Colors.red,
                                         duration: const Duration(seconds: 5),
                                       ),
                                     );
                                   }
                                 } finally {
-                                  if (mounted) setState(() => _isSubmitting = false);
+                                  if (mounted)
+                                    setState(() => _isSubmitting = false);
                                 }
                               },
                         icon: const Icon(Icons.check),

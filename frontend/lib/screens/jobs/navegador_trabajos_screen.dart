@@ -498,7 +498,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
       // ✅ FONDO ROSADO cuando muestra trabajos propios
       backgroundColor: mostrandoMisTrabajos
           ? const Color.fromARGB(255, 235, 176, 181)
-          : const Color(0xFFF8F9FA),
+          : const Color.fromARGB(255, 235, 176, 181),
       appBar: AppBar(
         backgroundColor: const Color(0xFFC5414B),
         elevation: 0,
@@ -816,7 +816,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: const Color.fromARGB(255, 238, 223, 223),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -851,7 +851,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                     trabajo.nombreRubro ?? '',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[600],
+                      color: const Color.fromARGB(255, 84, 84, 84),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -861,7 +861,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[700],
+                      color: const Color.fromARGB(255, 79, 79, 79),
                       height: 1.4,
                     ),
                   ),
@@ -883,9 +883,10 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
 
   Widget _buildCardHeader(TrabajoModel trabajo) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+          horizontal: 16, vertical: 20), // ✅ más padding vertical
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: const Color.fromARGB(255, 238, 223, 223),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16),
           topRight: Radius.circular(16),
@@ -894,18 +895,24 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
       child: Row(
         children: [
           CircleAvatar(
-            radius: 16,
+            radius: 40, // ✅ más grande
             backgroundColor: const Color(0xFFC5414B),
-            child: Text(
-              trabajo.nombreEmpleador?.substring(0, 1).toUpperCase() ?? 'E',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            backgroundImage: trabajo.fotoEmpleadorUrl != null
+                ? NetworkImage(trabajo.fotoEmpleadorUrl!)
+                : null,
+            child: trabajo.fotoEmpleadorUrl == null
+                ? Text(
+                    trabajo.nombreEmpleador?.substring(0, 1).toUpperCase() ??
+                        'E',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20, // ✅ más grande
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                : null,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -913,15 +920,16 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
                 const Text(
                   'Publicado por',
                   style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey,
+                    fontSize: 16, // ✅ más grande
+                    color: Color.fromARGB(255, 0, 0, 0),
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   trabajo.nombreEmpleador ?? 'Usuario',
                   style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 23, // ✅ más grande
+                    fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
                   maxLines: 1,
@@ -934,7 +942,7 @@ class _NavegadorTrabajosScreenState extends State<NavegadorTrabajosScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.red.shade50,
+                color: const Color.fromARGB(255, 214, 159, 167),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.red.shade200),
               ),

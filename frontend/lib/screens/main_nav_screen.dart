@@ -132,7 +132,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 254, 226, 226),
         selectedItemColor: const Color(0xFFC5414B),
         unselectedItemColor: Colors.grey,
         selectedFontSize: 12,

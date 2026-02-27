@@ -41,6 +41,7 @@ class TrabajoModel {
   final int? ubicacionId;
   final String? fotoPrincipalUrl;
   final bool permiteInicioIncompleto;
+  final String? fotoEmpleadorUrl; // ✅ NUEVO
 
   TrabajoModel({
     required this.id,
@@ -52,6 +53,7 @@ class TrabajoModel {
     required this.horarioInicio,
     required this.horarioFin,
     required this.cantidadEmpleadosRequeridos,
+    this.fotoEmpleadorUrl,
     this.salario,
     required this.metodoPago,
     required this.estadoPublicacion,
@@ -83,8 +85,9 @@ class TrabajoModel {
       fechaFin: _parseDateTime(json['fecha_fin']),
       horarioInicio: json['horario_inicio'] ?? '',
       horarioFin: json['horario_fin'] ?? '',
+      fotoEmpleadorUrl: _parseFotoEmpleador(json),
       cantidadEmpleadosRequeridos: json['cantidad_empleados_requeridos'] ?? 1,
-      salario: json['salario']?.toDouble(),
+      salario: _parseSalario(json),
       metodoPago: json['metodo_pago'] ?? '',
       estadoPublicacion: _parseEstadoPublicacion(json['estado_publicacion']),
       urgencia: json['urgencia'] ?? 'ESTANDAR',
@@ -133,6 +136,35 @@ class TrabajoModel {
     return null;
   }
 
+  static String? _parseFotoEmpleador(Map<String, dynamic> json) {
+    final usuario = json['usuario'];
+    if (usuario == null) return null;
+
+    // Persona
+    final persona = usuario['usuario_persona'];
+    if (persona != null) {
+      if (persona is List && persona.isNotEmpty) {
+        return persona[0]['foto_perfil_url']?.toString();
+      }
+      if (persona is Map) {
+        return persona['foto_perfil_url']?.toString();
+      }
+    }
+
+    // Empresa
+    final empresa = usuario['usuario_empresa'];
+    if (empresa != null) {
+      if (empresa is List && empresa.isNotEmpty) {
+        return empresa[0]['logo_url']?.toString();
+      }
+      if (empresa is Map) {
+        return empresa['logo_url']?.toString();
+      }
+    }
+
+    return null;
+  }
+
   static EstadoPublicacion _parseEstadoPublicacion(String? estado) {
     if (estado == null) return EstadoPublicacion.PUBLICADO;
 
@@ -152,6 +184,27 @@ class TrabajoModel {
       default:
         return EstadoPublicacion.PUBLICADO;
     }
+  }
+
+  static double? _parseSalario(Map<String, dynamic> json) {
+    // Primero intentar desde campo directo
+    if (json['salario'] != null) {
+      return (json['salario'] as num).toDouble();
+    }
+
+    // Si no, buscar dentro de pago
+    final pago = json['pago'];
+    if (pago == null) return null;
+
+    if (pago is Map && pago['monto'] != null) {
+      return (pago['monto'] as num).toDouble();
+    }
+
+    if (pago is List && pago.isNotEmpty && pago[0]['monto'] != null) {
+      return (pago[0]['monto'] as num).toDouble();
+    }
+
+    return null;
   }
 
   static String? _buildDireccion(dynamic ubicacionData) {

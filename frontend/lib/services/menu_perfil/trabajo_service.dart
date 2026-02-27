@@ -34,28 +34,27 @@ class TrabajoService {
       print('🔍 Obteniendo trabajo con ID: $idTrabajo');
 
       final response = await supabase.from('trabajo').select('''
-          *,
-          rubro:id_rubro(id_rubro, nombre),
-          ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
-          pago:id_pago(id_pago, monto, metodo, estado, periodo),
-          usuario!trabajo_empleador_id_fkey(
-            id_usuario,
-            usuario_persona(
-              nombre,
-              apellido
-            ),
-            usuario_empresa(
-              nombre_corporativo
-            )
+        *,
+        rubro:id_rubro(id_rubro, nombre),
+        ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
+        pago:id_pago(id_pago, monto, metodo, estado, periodo),
+        usuario!trabajo_empleador_id_fkey(
+          id_usuario,
+          usuario_persona(
+            nombre,
+            apellido,
+            foto_perfil_url
+          ),
+          usuario_empresa(
+            nombre_corporativo,
+            logo_url
           )
-        ''').eq('id_trabajo', idTrabajo).single();
+        )
+      ''').eq('id_trabajo', idTrabajo).single();
 
-      // Procesar nombre del empleador
       String? nombreEmpleador;
-
       if (response['usuario'] != null) {
         final usuario = response['usuario'];
-
         if (usuario['usuario_persona'] != null &&
             (usuario['usuario_persona'] is List &&
                 (usuario['usuario_persona'] as List).isNotEmpty)) {
@@ -70,9 +69,7 @@ class TrabajoService {
       }
 
       response['nombre_empleador_procesado'] = nombreEmpleador;
-
       print('✅ Trabajo encontrado: ${response['titulo']}');
-
       return TrabajoModel.fromJson(response);
     } catch (e) {
       print('❌ Error al obtener trabajo por ID: $e');
@@ -91,7 +88,6 @@ class TrabajoService {
   Future<List<TrabajoModel>> getTrabajos({int from = 0, int to = 19}) async {
     try {
       final idUsuario = await AuthService.getCurrentUserId();
-
       print('🔍 Cargando trabajos donde empleador_id != $idUsuario');
 
       final response = await supabase
@@ -100,15 +96,17 @@ class TrabajoService {
       *,
       rubro:id_rubro(id_rubro, nombre),
       ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
-      pago:id_pago(id_pago, monto, metodo, estado),
+      pago:id_pago(id_pago, monto, metodo, estado, periodo),
       usuario!trabajo_empleador_id_fkey(
         id_usuario,
         usuario_persona(
           nombre,
-          apellido
+          apellido,
+          foto_perfil_url
         ),
         usuario_empresa(
-          nombre_corporativo
+          nombre_corporativo,
+          logo_url
         )
       ),
       trabajo_foto(foto_url, es_principal)
@@ -120,14 +118,10 @@ class TrabajoService {
 
       print('✅ Trabajos encontrados: ${(response as List).length}');
 
-      // ✅ CONVERTIR A MODELOS
       final trabajos = (response as List).map((json) {
-        // Procesar nombre del empleador
         String? nombreEmpleador;
-
         if (json['usuario'] != null) {
           final usuario = json['usuario'];
-
           if (usuario['usuario_persona'] != null &&
               (usuario['usuario_persona'] is List &&
                   (usuario['usuario_persona'] as List).isNotEmpty)) {
@@ -140,7 +134,6 @@ class TrabajoService {
             nombreEmpleador = empresa['nombre_corporativo'];
           }
         }
-
         json['nombre_empleador_procesado'] = nombreEmpleador;
 
         String? fotoPrincipalUrl;
@@ -163,43 +156,20 @@ class TrabajoService {
         return TrabajoModel.fromJson(json);
       }).toList();
 
-      // ✅ FILTRAR TRABAJOS QUE YA FINALIZARON (fecha + hora)
       final now = DateTime.now();
-
       final trabajosFiltrados = trabajos.where((trabajo) {
-        // Si no tiene fecha_fin, mantenerlo (trabajo indefinido)
-        if (trabajo.fechaFin == null) {
-          print('✅ Trabajo "${trabajo.titulo}" - Sin fecha_fin, se mantiene');
-          return true;
-        }
-
-        // Obtener fecha_fin y horario_fin
+        if (trabajo.fechaFin == null) return true;
         final fechaFin = trabajo.fechaFin!;
-        final horarioFin = trabajo.horarioFin; // Ej: "18:00"
-
-        // Si no tiene horario_fin, comparar solo fecha
+        final horarioFin = trabajo.horarioFin;
         if (horarioFin == null || horarioFin.isEmpty) {
-          final soloFecha = fechaFin
-                  .isAfter(DateTime(now.year, now.month, now.day)) ||
+          return fechaFin.isAfter(DateTime(now.year, now.month, now.day)) ||
               fechaFin.isAtSameMomentAs(DateTime(now.year, now.month, now.day));
-          print(
-              '✅ Trabajo "${trabajo.titulo}" - Sin horario_fin, comparando solo fecha: $soloFecha');
-          return soloFecha;
         }
-
-        // Parsear horario_fin (formato esperado: "HH:mm")
         try {
           final partes = horarioFin.split(':');
-          if (partes.length != 2) {
-            print(
-                '⚠️ Trabajo "${trabajo.titulo}" - Formato horario inválido: $horarioFin, se mantiene');
-            return true; // Formato inválido, mantener
-          }
-
+          if (partes.length < 2) return true;
           final hora = int.parse(partes[0]);
           final minuto = int.parse(partes[1]);
-
-          // Crear DateTime completo: fecha_fin + horario_fin
           final fechaHoraFin = DateTime(
             fechaFin.year,
             fechaFin.month,
@@ -207,21 +177,13 @@ class TrabajoService {
             hora,
             minuto,
           );
-
-          // ✅ Mostrar SOLO si NO ha pasado la fecha/hora de finalización
-          final deberiaMostrarse = fechaHoraFin.isAfter(now);
-
-          return deberiaMostrarse;
+          return fechaHoraFin.isAfter(now);
         } catch (e) {
-          print(
-              '⚠️ Error parseando horario_fin "$horarioFin" del trabajo "${trabajo.titulo}": $e');
-          return true; // Si hay error, mantener el trabajo
+          return true;
         }
       }).toList();
 
-      print(
-          '✅ Trabajos después de filtrar por fecha/hora: ${trabajosFiltrados.length}');
-
+      print('✅ Trabajos después de filtrar: ${trabajosFiltrados.length}');
       return trabajosFiltrados;
     } catch (e) {
       print('❌ Error al cargar trabajos: $e');
@@ -236,31 +198,32 @@ class TrabajoService {
   Future<List<TrabajoModel>> getMisTrabajos({
     int from = 0,
     int to = 19,
-    String? filtroEstado, // Opcional: filtrar por estado
+    String? filtroEstado,
   }) async {
     try {
       final idUsuario = await AuthService.getCurrentUserId();
-
       print('🔍 Cargando mis trabajos donde empleador_id = $idUsuario');
 
       var query = supabase.from('trabajo').select('''
-  *,
-  rubro:id_rubro(id_rubro, nombre),
-  ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
-  pago:id_pago(id_pago, monto, metodo, estado),
-  usuario!trabajo_empleador_id_fkey(
-    id_usuario,
-    usuario_persona(
-      nombre,
-      apellido
-    ),
-    usuario_empresa(
-      nombre_corporativo
-    )
-  ),
-  trabajo_foto(foto_url, es_principal)
-''').eq('empleador_id', idUsuario);
-      // Filtro opcional por estado
+      *,
+      rubro:id_rubro(id_rubro, nombre),
+      ubicacion:ubicacion_id(id_ubicacion, nombre, calle, numero, ciudad, provincia),
+      pago:id_pago(id_pago, monto, metodo, estado, periodo),
+      usuario!trabajo_empleador_id_fkey(
+        id_usuario,
+        usuario_persona(
+          nombre,
+          apellido,
+          foto_perfil_url
+        ),
+        usuario_empresa(
+          nombre_corporativo,
+          logo_url
+        )
+      ),
+      trabajo_foto(foto_url, es_principal)
+    ''').eq('empleador_id', idUsuario);
+
       if (filtroEstado != null) {
         query = query.eq('estado_publicacion', filtroEstado);
       }
@@ -271,12 +234,9 @@ class TrabajoService {
       print('✅ Mis trabajos encontrados: ${(response as List).length}');
 
       final trabajos = (response as List).map((json) {
-        // Procesar nombre del empleador
         String? nombreEmpleador;
-
         if (json['usuario'] != null) {
           final usuario = json['usuario'];
-
           if (usuario['usuario_persona'] != null &&
               (usuario['usuario_persona'] is List &&
                   (usuario['usuario_persona'] as List).isNotEmpty)) {
@@ -289,10 +249,8 @@ class TrabajoService {
             nombreEmpleador = empresa['nombre_corporativo'];
           }
         }
-
         json['nombre_empleador_procesado'] = nombreEmpleador;
 
-// ✅ PROCESAR FOTO PRINCIPAL
         String? fotoPrincipalUrl;
         if (json['trabajo_foto'] != null) {
           final fotos = json['trabajo_foto'];
@@ -313,7 +271,6 @@ class TrabajoService {
         return TrabajoModel.fromJson(json);
       }).toList();
 
-      // ✅ Ordenar por prioridad de estado
       trabajos.sort((a, b) {
         final ordenA = _getOrdenEstado(a.estadoPublicacion);
         final ordenB = _getOrdenEstado(b.estadoPublicacion);
@@ -468,7 +425,8 @@ class TrabajoService {
         'ubicacion_id': datos['ubicacion_id'],
         'metodo_pago': datos['metodo_pago'],
         'cantidad_empleados_requeridos': datos['cantidad_empleados_requeridos'],
-        'permite_inicio_incompleto': datos['permite_inicio_incompleto'] ?? false,
+        'permite_inicio_incompleto':
+            datos['permite_inicio_incompleto'] ?? false,
         'urgencia': datos['urgencia'] ?? 'ESTANDAR',
         'estado_publicacion': 'PUBLICADO',
       };
